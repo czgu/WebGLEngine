@@ -2,6 +2,7 @@ var StaticShader = require('../Shader/StaticShader.js');
 var EntityRenderer = require('./EntityRenderer.js');
 var TerrainShader = require('../Shader/TerrainShader.js');
 var TerrainRenderer = require('./TerrainRenderer.js');
+var SkyboxRenderer = require('../Skybox/SkyboxRenderer.js');
 var Util = require('../Util/Util.js');
 
 var shader;
@@ -31,24 +32,29 @@ function initialize() {
     // Initialize Terrain Renderer
     terrainShader = new TerrainShader.TerrainShader();
     TerrainRenderer.initialize(terrainShader, projectionMatrix);
+
+    SkyboxRenderer.initialize(projectionMatrix);
+
 }
 
-function render(light, camera) {
+function render(lights, camera) {
     prepare();
 
     shader.start();
     shader.loadSkyColor(skyColor);
-    shader.loadLight(light);
+    shader.loadLights(lights);
     shader.loadViewMatrix(camera);
     EntityRenderer.render(texturedModelEntities);
     shader.stop();
 
     terrainShader.start();
     terrainShader.loadSkyColor(skyColor);
-    terrainShader.loadLight(light);
+    terrainShader.loadLights(lights);
     terrainShader.loadViewMatrix(camera);
     TerrainRenderer.render(terrains);
     terrainShader.stop();
+
+    SkyboxRenderer.render(camera);
 
     texturedModelEntities.length = 0;
     texturedModelIndicesLookUp = {};
@@ -76,6 +82,7 @@ function processTerrain(terrain) {
 function cleanUp() {
     shader.cleanUp();
     terrainShader.cleanUp();
+    SkyboxRenderer.cleanUp();
 }
 
 function prepare() {

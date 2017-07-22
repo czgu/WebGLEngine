@@ -42,6 +42,7 @@ function preparedTexturedModel(texturedModel) {
     gl.enableVertexAttribArray(2);
 
     var texture = texturedModel.texture;
+    shader.loadNumberOfRows(texture.numberOfRows);
     if (texture.hasTransparency) {
         Util.disableCulling();
     }
@@ -65,6 +66,7 @@ function prepareInstance(entity) {
     var mvMatrix = MathUtil.createTransformationMatrix(
         entity.position, entity.rotation, entity.scale);
     shader.loadTransMatrix(mvMatrix);
+    shader.loadOffset(entity.getTextureXYOffset());
 }
 
 var self = module.exports = {

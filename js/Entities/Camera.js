@@ -36,7 +36,7 @@ Camera.prototype.calculatePitch = function() {
     if(mouseInfo.buttonPressed[2]) {
         let pitchChange = mouseInfo.buttonDelta[2][1] * 0.01;
         this.pitch -= pitchChange;
-        this.pitch = MathUtil.clamp(this.pitch, 0, Math.PI / 2);
+        this.pitch = MathUtil.clamp(this.pitch, -Math.PI / 2, Math.PI / 2);
     }
 }
 

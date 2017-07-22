@@ -75,6 +75,10 @@ ShaderProgram.prototype.loadVector = function(location, vector) {
     gl.uniform3fv(location, vector);
 }
 
+ShaderProgram.prototype.load2DVector = function(location, vector) {
+    gl.uniform2fv(location, vector);
+}
+
 ShaderProgram.prototype.loadInt = function(location, value) {
     gl.uniform1i(location, value);
 }

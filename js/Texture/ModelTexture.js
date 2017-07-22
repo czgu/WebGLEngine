@@ -11,6 +11,8 @@ function ModelTexture(id) {
 
     this.serialNumber = serialNumber;
     serialNumber += 1;
+
+    this.numberOfRows = 1;
 }
 
 var self = module.exports = {

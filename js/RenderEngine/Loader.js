@@ -49,33 +49,85 @@ function handleLoadedTexture(texture) {
     gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
+function loadToVAO(positions, textureCoords, normals, indices) {
+    var vaoID = createVAO();
+
+    storeDataInAttributeList(0, 3, positions);
+    storeDataInAttributeList(1, 2, textureCoords);
+    storeDataInAttributeList(2, 3, normals);
+    bindIndicesBuffer(indices);
+    unbindVAO();
+    return new RawModel.RawModel(vaoID, indices.length);
+}
+
+function loadPositionsToVAO(positions, dimensions) {
+    let vaoID = createVAO();
+    storeDataInAttributeList(0, dimensions, positions);
+    unbindVAO();
+
+    return new RawModel.RawModel(vaoID, positions.length / dimensions);
+}
+
+function loadTexture(imageUrl, callback) {
+    var image = new Image();
+    var texture = gl.createTexture();
+
+    textures.push(texture);
+
+    texture.image = image;
+    image.onload = function () {
+        handleLoadedTexture(texture);
+        callback(texture);
+    }
+    image.src = imageUrl;
+
+    return texture;
+}
+
+function loadCubeMapTextureCompleted(texture, callback) {
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    textures.push(texture);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+
+    callback(texture);
+}
+
+function loadCubeMapTexture(texture, textureFiles, index, callback) {
+    if (index === textureFiles.length) {
+        loadCubeMapTextureCompleted(texture, callback);
+        return;
+    }
+
+    let image = new Image();
+    image.src = textureFiles[index];
+    image.onload = () => {
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + index,  0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        loadCubeMapTexture(texture, textureFiles, index + 1, callback);
+    };
+}
+
+function loadCubeMap(textureFiles, callback) {
+    let texture = gl.createTexture();
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+
+    loadCubeMapTexture(texture, textureFiles, 0, callback);
+}
+
 var self = module.exports = {
-    loadToVAO: function(positions, textureCoords, normals, indices) {
-        var vaoID = createVAO();
+    loadToVAO: loadToVAO,
 
-        storeDataInAttributeList(0, 3, positions);
-        storeDataInAttributeList(1, 2, textureCoords);
-        storeDataInAttributeList(2, 3, normals);
-        bindIndicesBuffer(indices);
-        unbindVAO();
-        return new RawModel.RawModel(vaoID, indices.length);
-    },
+    loadPositionsToVAO: loadPositionsToVAO,
 
-    loadTexture: function(imageUrl, callback) {
-        var image = new Image();
-        var texture = gl.createTexture();
+    loadTexture: loadTexture,
 
-        textures.push(texture);
-
-        texture.image = image;
-        image.onload = function () {
-            handleLoadedTexture(texture);
-            callback(texture);
-        }
-        image.src = imageUrl;
-
-        return texture;
-    },
+    loadCubeMap: loadCubeMap,
 
     cleanUp: function() {
         for (let vao of vaos) {

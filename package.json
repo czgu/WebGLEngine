@@ -1,6 +1,6 @@
 {
   "name": "gamedev",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
   "main": "server.js",
   "directories": {
@@ -10,10 +10,13 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-  "author": "",
+  "author": "cgu",
   "license": "ISC",
   "dependencies": {
     "browserify-shader": "^0.1.2",
     "express": "^4.15.3"
+  },
+  "devDependencies": {
+    "eslint": "^4.3.0"
   }
 }

@@ -30,6 +30,13 @@ var self = module.exports = {
         return matrix;
     },
 
+    create2DTransformationMatrix: (translation, scale) => {
+        var matrix = mat4.create();
+        mat4.fromRotationTranslationScale(matrix, quat.create(), translation.concat([0]), scale.concat([1]));
+
+        return matrix;
+    },
+
     createViewMatrix: function(translation, rotation) {
         var matrix = mat4.create();
         mat4.fromQuat(matrix, toQuaternion(rotation));

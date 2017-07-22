@@ -19,33 +19,25 @@ var Player = require('./Entities/Player.js');
 var Terrain = require('./Terrain/Terrain.js');
 var HeightMap = require('./Terrain/HeightMap.js');
 
+var GUITexture = require('./GUI/GUITexture.js');
+var GUIRenderer = require('./GUI/GUIRenderer.js');
+
 window.onload = main;
 
 var player;
 var entities;
 var camera;
-var light;
+var lights;
 
-var playerModel;
-var playerTexture;
-
-var treeModel;
-var treeTexture;
-
-var grassModel;
-var grassTexture;
-
-var fernModel;
-var fernTexture;
-
-var backgroundTexture;
-var rTexture, gTexture, bTexture;
-var blendMap;
+var textures = {};
+var models = {};
 
 var terrain;
 var heightMap;
 
-let numResRequiredToLoad = 14;
+var guis;
+
+let numResRequiredToLoad = 17;
 
 function main() {
     // initialize WEBGL
@@ -64,28 +56,33 @@ function main() {
         Display.createDisplay();
     });
 
-
     // Load shaders
     MasterRenderer.initialize();
+    GUIRenderer.initialize();
 
     // Load graphics
     OBJLoader.loadOBJModel('res/tree.obj', function(m) {
-        treeModel = m;
+        models.treeModel = m;
         finishedLoadingItem();
     });
 
     OBJLoader.loadOBJModel('res/grassModel.obj', function(m) {
-        grassModel = m;
+        models.grassModel = m;
         finishedLoadingItem();
     });
 
     OBJLoader.loadOBJModel('res/fern.obj', function(m) {
-        fernModel = m;
+        models.fernModel = m;
         finishedLoadingItem();
     });
 
     OBJLoader.loadOBJModel('res/person.obj', function(m) {
-        playerModel = m;
+        models.playerModel = m;
+        finishedLoadingItem();
+    });
+
+    OBJLoader.loadOBJModel('res/lamp.obj', function(m) {
+        models.lampModel = m;
         finishedLoadingItem();
     });
 
@@ -96,52 +93,67 @@ function main() {
     };
 
     Loader.loadTexture('res/playerTexture.png', function(t) {
-        playerTexture = new ModelTexture.ModelTexture(t);
-        this.shineDamper = 10;
-        this.reflectivity = 1.5;
+        textures.playerTexture = new ModelTexture.ModelTexture(t);
+        textures.playerTexture.shineDamper = 10;
+        textures.playerTexture.reflectivity = 1.5;
         finishedLoadingItem();
     });
 
     Loader.loadTexture('res/tree.png', function(t) {
-        treeTexture = new ModelTexture.ModelTexture(t);
+        textures.treeTexture = new ModelTexture.ModelTexture(t);
         finishedLoadingItem();
     });
 
     Loader.loadTexture('res/grassTexture.png', function(t) {
-        grassTexture = new ModelTexture.ModelTexture(t);
-        grassTexture.hasTransparency = true;
-        grassTexture.useFakeNormal = true;
+        textures.grassTexture = new ModelTexture.ModelTexture(t);
+        textures.grassTexture.hasTransparency = true;
+        textures.grassTexture.useFakeNormal = true;
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/fern.png', function(t) {
-        fernTexture = new ModelTexture.ModelTexture(t);
-        fernTexture.hasTransparency = true;
+    Loader.loadTexture('res/fern2.png', function(t) {
+        textures.fernTexture = new ModelTexture.ModelTexture(t);
+        textures.fernTexture.hasTransparency = true;
+        textures.fernTexture.numberOfRows = 2;
         finishedLoadingItem();
     });
 
     Loader.loadTexture('res/grass.png', function(t) {
-        backgroundTexture = new TerrainTexture.TerrainTexture(t);
+        textures.backgroundTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
     Loader.loadTexture('res/mud.png', function(t) {
-        rTexture = new TerrainTexture.TerrainTexture(t);
+        textures.rTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
     Loader.loadTexture('res/grassFlowers.png', function(t) {
-        gTexture = new TerrainTexture.TerrainTexture(t);
+        textures.gTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
     Loader.loadTexture('res/path.png', function(t) {
-        bTexture = new TerrainTexture.TerrainTexture(t);
+        textures.bTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
     Loader.loadTexture('res/blendMap.png', function(t) {
-        blendMap = new TerrainTexture.TerrainTexture(t);
+        textures.blendMap = new TerrainTexture.TerrainTexture(t);
+        finishedLoadingItem();
+    });
+
+    Loader.loadTexture('res/lamp.png', function(t) {
+        textures.lampTexture = new ModelTexture.ModelTexture(t);
+        textures.lampTexture.useFakeNormal = true;
+        finishedLoadingItem();
+    });
+
+    guis = [];
+    Loader.loadTexture('res/health.png', function(t) {
+        let guiTexture = new ModelTexture.ModelTexture(t);
+        let gui = new GUITexture.GUITexture(guiTexture, [-0.6, 0.8], [0.25, 0.25]);
+        guis.push(gui);
         finishedLoadingItem();
     });
 }
@@ -154,17 +166,18 @@ function finishedLoadingItem() {
 }
 
 function allResLoaded() {
-    var treeTexturedModel = new TexturedModel.TexturedModel(treeModel, treeTexture);
-    var grassTexturedModel =  new TexturedModel.TexturedModel(grassModel, grassTexture);
-    var fernTexturedModel =  new TexturedModel.TexturedModel(fernModel, fernTexture);
+    let treeTexturedModel = new TexturedModel.TexturedModel(models.treeModel, textures.treeTexture);
+    let grassTexturedModel =  new TexturedModel.TexturedModel(models.grassModel, textures.grassTexture);
+    let fernTexturedModel =  new TexturedModel.TexturedModel(models.fernModel, textures.fernTexture);
+    let lampTexturedModel = new TexturedModel.TexturedModel(models.lampModel, textures.lampTexture);
 
-    light = new Light.Light([20000, 20000, 2000], [1, 1, 1]);
     player = new Player.Player(
-        new TexturedModel.TexturedModel(playerModel, playerTexture), [100, 0, -90], [0, 0, 0], [0.3, 0.3, 0.3]);
+        new TexturedModel.TexturedModel(models.playerModel, textures.playerTexture), [0, 0, 0], [0, 0, 0], [0.3, 0.3, 0.3]);
     camera = new Camera.Camera(player);
 
-    let texturePack = new TerrainTexturePack.TerrainTexturePack(backgroundTexture, rTexture, gTexture, bTexture);
-    terrain = new Terrain.Terrain(0, -1, texturePack, blendMap, heightMap);
+    let texturePack = new TerrainTexturePack.TerrainTexturePack(
+        textures.backgroundTexture, textures.rTexture, textures.gTexture, textures.bTexture);
+    terrain = new Terrain.Terrain(0, -1, texturePack, textures.blendMap, heightMap);
 
     // Load Entities
     entities = [];
@@ -182,8 +195,18 @@ function allResLoaded() {
         x = Math.random() * 800;
         z = Math.random() * -600;
         y = terrain.getTerrainHeight(x, z);
-        entities.push(new Entity.Entity(fernTexturedModel, [x, y, z], [0, 0, 0], [0.6, 0.6, 0.6]));
+        entities.push(new Entity.Entity(fernTexturedModel, [x, y, z], [0, 0, 0], [0.6, 0.6, 0.6], Math.floor(Math.random() * 4)));
     }
+
+    lights = [
+        new Light.Light([0, 1000, -7000], [0.4, 0.4, 0.4]),
+        new Light.Light([185, 10, -293], [2, 0, 0], [1, 0.01, 0.002]),
+        new Light.Light([370, 17, -300], [0, 2, 0], [1, 0.01, 0.002]),
+        new Light.Light([293, 7, -305], [0, 0, 2], [1, 0.01, 0.002]),
+    ];
+    entities.push(new Entity.Entity(lampTexturedModel, [185, -4.7, -293], [0, 0, 0], [1, 1, 1]));
+    entities.push(new Entity.Entity(lampTexturedModel, [370, 4.2, -300], [0, 0, 0], [1, 1, 1]));
+    entities.push(new Entity.Entity(lampTexturedModel, [293, -6.8, -305], [0, 0, 0], [1, 1, 1]));
 
     tick();
 }
@@ -204,11 +227,14 @@ function tick() {
     MasterRenderer.processEntity(player);
     entities.forEach((entity) => { MasterRenderer.processEntity(entity) });
     MasterRenderer.processTerrain(terrain);
-    MasterRenderer.render(light, camera);
+    MasterRenderer.render(lights, camera);
+
+    GUIRenderer.render(guis);
 }
 
 function end() {
     MasterRenderer.cleanUp();
+    GUIRenderer.cleanUp();
     Loader.cleanUp();
     Display.closeDisplay();
 }

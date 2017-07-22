@@ -1,5 +1,6 @@
 var ShaderProgram = require('./ShaderProgram.js');
 var MathUtil = require('../Util/MathUtil.js');
+var Const = require('../Util/Const.js');
 
 const VERTEX_SHADER = require('./GLSL/TerrainVertexShader.c');
 const FRAGMENT_SHADER = require('./GLSL/TerrainFragmentShader.c');
@@ -20,8 +21,6 @@ TerrainShader.prototype.getAllUniformLocations = function() {
     this.transformationMatrixLocation = this.getUniformLocation("transformationMatrix");
     this.projectionMatrixLocation = this.getUniformLocation("projectionMatrix");
     this.viewMatrixLocation = this.getUniformLocation("viewMatrix");
-    this.lightPositionLocation = this.getUniformLocation("lightPosition");
-    this.lightColorLocation = this.getUniformLocation("lightColor");
     this.shineDamperLocation = this.getUniformLocation("shineDamper");
     this.reflectivityLocation = this.getUniformLocation("reflectivity");
     this.skyColorLocation = this.getUniformLocation("skyColor");
@@ -31,6 +30,15 @@ TerrainShader.prototype.getAllUniformLocations = function() {
     this.gTextureLocation = this.getUniformLocation("gTexture");
     this.bTextureLocation = this.getUniformLocation("bTexture");
     this.blendMapLocation = this.getUniformLocation("blendMap");
+
+    this.lightPositionLocations = [];
+    this.lightColorLocations = [];
+    this.attenuationLocations = [];
+    for (let i = 0; i < Const.MAX_LIGHTS; i++) {
+         this.lightPositionLocations.push(this.getUniformLocation("lightPosition[" + i + "]"));
+         this.lightColorLocations.push(this.getUniformLocation("lightColor[" + i + "]"));
+         this.attenuationLocations.push(this.getUniformLocation("attenuation[" + i + "]"));
+    }
 };
 
 TerrainShader.prototype.loadTransMatrix = function(matrix) {
@@ -47,9 +55,18 @@ TerrainShader.prototype.loadViewMatrix = function(camera) {
     this.loadMatrix(this.viewMatrixLocation, matrix);
 };
 
-TerrainShader.prototype.loadLight = function(light) {
-    this.loadVector(this.lightPositionLocation, light.position);
-    this.loadVector(this.lightColorLocation, light.color);
+TerrainShader.prototype.loadLights = function(lights) {
+    for (let i = 0; i < Const.MAX_LIGHTS; i++) {
+        if (i < lights.length) {
+            this.loadVector(this.lightPositionLocations[i], lights[i].position);
+            this.loadVector(this.lightColorLocations[i], lights[i].color);
+            this.loadVector(this.attenuationLocations[i], lights[i].attenuation);
+        } else {
+            this.loadVector(this.lightPositionLocations[i], [0, 0, 0]);
+            this.loadVector(this.lightColorLocations[i], [0, 0, 0]);
+            this.loadVector(this.attenuationLocations[i], [1, 0, 0]);
+        }
+    }
 };
 
 TerrainShader.prototype.loadShineVariables = function(shineDamper, reflectivity) {
