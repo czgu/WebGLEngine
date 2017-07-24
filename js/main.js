@@ -1,55 +1,56 @@
-var Display = require('./RenderEngine/Display.js');
-var Loader = require('./RenderEngine/Loader.js');
-var MasterRenderer = require('./RenderEngine/MasterRenderer.js');
-var OBJLoader = require('./RenderEngine/OBJLoader.js');
+const Display = require('./RenderEngine/Display.js');
+const Loader = require('./RenderEngine/Loader.js');
+const MasterRenderer = require('./RenderEngine/MasterRenderer.js');
+const OBJLoader = require('./RenderEngine/OBJLoader.js');
 
-var Util = require('./Util/Util.js');
+const Util = require('./Util/Util.js');
 
-var ModelTexture = require('./Texture/ModelTexture.js');
-var TerrainTexture = require('./Texture/TerrainTexture.js');
-var TerrainTexturePack = require('./Texture/TerrainTexturePack.js');
+const ModelTexture = require('./Texture/ModelTexture.js');
+const TerrainTexture = require('./Texture/TerrainTexture.js');
+const TerrainTexturePack = require('./Texture/TerrainTexturePack.js');
 
-var TexturedModel = require('./Model/TexturedModel.js');
+const TexturedModel = require('./Model/TexturedModel.js');
 
-var Entity = require('./Entities/Entity.js');
-var Camera = require('./Entities/Camera.js');
-var Light = require('./Entities/Light.js');
-var Player = require('./Entities/Player.js');
+const Entity = require('./Entities/Entity.js');
+const Camera = require('./Entities/Camera.js');
+const Light = require('./Entities/Light.js');
+const Player = require('./Entities/Player.js');
 
-var Terrain = require('./Terrain/Terrain.js');
-var HeightMap = require('./Terrain/HeightMap.js');
+const Terrain = require('./Terrain/Terrain.js');
+const HeightMap = require('./Terrain/HeightMap.js');
 
-var GUITexture = require('./GUI/GUITexture.js');
-var GUIRenderer = require('./GUI/GUIRenderer.js');
+const GUITexture = require('./GUI/GUITexture.js');
+const GUIRenderer = require('./GUI/GUIRenderer.js');
 
-window.onload = main;
 
-var player;
-var entities;
-var camera;
-var lights;
+let player;
+let entities;
+let camera;
+let lights;
 
-var textures = {};
-var models = {};
+const textures = {};
+const models = {};
 
-var terrain;
-var heightMap;
+let terrain;
+let heightMap;
 
-var guis;
+let guis;
 
 let numResRequiredToLoad = 17;
 
+window.onload = main;
+
 function main() {
     // initialize WEBGL
-    var canvas = document.getElementById("canvas");
+    const canvas = document.getElementById('canvas');
     Util.initGL(canvas);
     Display.createDisplay();
 
     Util.initKeyboard();
     Util.initMouse();
 
-    window.addEventListener("resize", function() { // resize GL on resize
-        canvas.width  = window.innerWidth;
+    window.addEventListener('resize', () => { // resize GL on resize
+        canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
         Util.initGL(canvas);
@@ -61,98 +62,99 @@ function main() {
     GUIRenderer.initialize();
 
     // Load graphics
-    OBJLoader.loadOBJModel('res/tree.obj', function(m) {
+    OBJLoader.loadOBJModel('res/tree.obj', (m) => {
         models.treeModel = m;
         finishedLoadingItem();
     });
 
-    OBJLoader.loadOBJModel('res/grassModel.obj', function(m) {
+    OBJLoader.loadOBJModel('res/grassModel.obj', (m) => {
         models.grassModel = m;
         finishedLoadingItem();
     });
 
-    OBJLoader.loadOBJModel('res/fern.obj', function(m) {
+    OBJLoader.loadOBJModel('res/fern.obj', (m) => {
         models.fernModel = m;
         finishedLoadingItem();
     });
 
-    OBJLoader.loadOBJModel('res/person.obj', function(m) {
+    OBJLoader.loadOBJModel('res/person.obj', (m) => {
         models.playerModel = m;
         finishedLoadingItem();
     });
 
-    OBJLoader.loadOBJModel('res/lamp.obj', function(m) {
+    OBJLoader.loadOBJModel('res/lamp.obj', (m) => {
         models.lampModel = m;
         finishedLoadingItem();
     });
 
-    var heightMapImage = new Image(); heightMapImage.src = 'res/heightmap.png';
+    const heightMapImage = new Image();
+    heightMapImage.src = 'res/heightmap.png';
     heightMapImage.onload = () => {
         heightMap = new HeightMap.HeightMap(heightMapImage);
         finishedLoadingItem();
     };
 
-    Loader.loadTexture('res/playerTexture.png', function(t) {
+    Loader.loadTexture('res/playerTexture.png', (t) => {
         textures.playerTexture = new ModelTexture.ModelTexture(t);
         textures.playerTexture.shineDamper = 10;
         textures.playerTexture.reflectivity = 1.5;
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/tree.png', function(t) {
+    Loader.loadTexture('res/tree.png', (t) => {
         textures.treeTexture = new ModelTexture.ModelTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/grassTexture.png', function(t) {
+    Loader.loadTexture('res/grassTexture.png', (t) => {
         textures.grassTexture = new ModelTexture.ModelTexture(t);
         textures.grassTexture.hasTransparency = true;
         textures.grassTexture.useFakeNormal = true;
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/fern2.png', function(t) {
+    Loader.loadTexture('res/fern2.png', (t) => {
         textures.fernTexture = new ModelTexture.ModelTexture(t);
         textures.fernTexture.hasTransparency = true;
         textures.fernTexture.numberOfRows = 2;
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/grass.png', function(t) {
+    Loader.loadTexture('res/grass.png', (t) => {
         textures.backgroundTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/mud.png', function(t) {
+    Loader.loadTexture('res/mud.png', (t) => {
         textures.rTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/grassFlowers.png', function(t) {
+    Loader.loadTexture('res/grassFlowers.png', (t) => {
         textures.gTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/path.png', function(t) {
+    Loader.loadTexture('res/path.png', (t) => {
         textures.bTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/blendMap.png', function(t) {
+    Loader.loadTexture('res/blendMap.png', (t) => {
         textures.blendMap = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/lamp.png', function(t) {
+    Loader.loadTexture('res/lamp.png', (t) => {
         textures.lampTexture = new ModelTexture.ModelTexture(t);
         textures.lampTexture.useFakeNormal = true;
         finishedLoadingItem();
     });
 
     guis = [];
-    Loader.loadTexture('res/health.png', function(t) {
-        let guiTexture = new ModelTexture.ModelTexture(t);
-        let gui = new GUITexture.GUITexture(guiTexture, [-0.6, 0.8], [0.25, 0.25]);
+    Loader.loadTexture('res/health.png', (t) => {
+        const guiTexture = new ModelTexture.ModelTexture(t);
+        const gui = new GUITexture.GUITexture(guiTexture, [-0.6, 0.8], [0.25, 0.25]);
         guis.push(gui);
         finishedLoadingItem();
     });
@@ -160,22 +162,23 @@ function main() {
 
 function finishedLoadingItem() {
     numResRequiredToLoad -= 1;
-    if (numResRequiredToLoad == 0) {
+    if (numResRequiredToLoad === 0) {
         allResLoaded();
     }
 }
 
+
 function allResLoaded() {
-    let treeTexturedModel = new TexturedModel.TexturedModel(models.treeModel, textures.treeTexture);
-    let grassTexturedModel =  new TexturedModel.TexturedModel(models.grassModel, textures.grassTexture);
-    let fernTexturedModel =  new TexturedModel.TexturedModel(models.fernModel, textures.fernTexture);
-    let lampTexturedModel = new TexturedModel.TexturedModel(models.lampModel, textures.lampTexture);
+     const treeTexturedModel = new TexturedModel.TexturedModel(models.treeModel, textures.treeTexture);
+     const grassTexturedModel = new TexturedModel.TexturedModel(models.grassModel, textures.grassTexture);
+     const fernTexturedModel = new TexturedModel.TexturedModel(models.fernModel, textures.fernTexture);
+     const lampTexturedModel = new TexturedModel.TexturedModel(models.lampModel, textures.lampTexture);
 
     player = new Player.Player(
         new TexturedModel.TexturedModel(models.playerModel, textures.playerTexture), [0, 0, 0], [0, 0, 0], [0.3, 0.3, 0.3]);
     camera = new Camera.Camera(player);
 
-    let texturePack = new TerrainTexturePack.TerrainTexturePack(
+     const texturePack = new TerrainTexturePack.TerrainTexturePack(
         textures.backgroundTexture, textures.rTexture, textures.gTexture, textures.bTexture);
     terrain = new Terrain.Terrain(0, -1, texturePack, textures.blendMap, heightMap);
 
@@ -212,7 +215,7 @@ function allResLoaded() {
 }
 
 function tick() {
-    let next = Display.updateDisplay();
+    const next = Display.updateDisplay();
     if (next) {
         requestAnimationFrame(tick);
     } else {
@@ -221,11 +224,11 @@ function tick() {
     }
 
     camera.move();
-    //camera.position = [player.position[0] - 20, player.position[1] + 20, player.position[2] + 60];
+    // camera.position = [player.position[0] - 20, player.position[1] + 20, player.position[2] + 60];
     player.move(terrain);
 
     MasterRenderer.processEntity(player);
-    entities.forEach((entity) => { MasterRenderer.processEntity(entity) });
+    entities.forEach((entity) => { MasterRenderer.processEntity(entity); });
     MasterRenderer.processTerrain(terrain);
     MasterRenderer.render(lights, camera);
 

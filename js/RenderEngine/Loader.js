@@ -1,11 +1,11 @@
-var RawModel = require('../Model/RawModel.js');
+const RawModel = require('../Model/RawModel.js');
 
-var vaos = [];
-var vbos = [];
-var textures = [];
+const vaos = [];
+const vbos = [];
+const textures = [];
 
 function createVAO() {
-    var vaoID = gl.createVertexArray();
+    const vaoID = gl.createVertexArray();
     vaos.push(vaoID);
 
     gl.bindVertexArray(vaoID);
@@ -13,7 +13,7 @@ function createVAO() {
 }
 
 function storeDataInAttributeList(attribute, itemSize, data) {
-    var vboID = gl.createBuffer();
+    const vboID = gl.createBuffer();
     vbos.push(vboID);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vboID);
@@ -23,7 +23,7 @@ function storeDataInAttributeList(attribute, itemSize, data) {
 }
 
 function bindIndicesBuffer(indices) {
-    var vboID = gl.createBuffer();
+    const vboID = gl.createBuffer();
     vbos.push(vboID);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vboID);
@@ -50,7 +50,7 @@ function handleLoadedTexture(texture) {
 }
 
 function loadToVAO(positions, textureCoords, normals, indices) {
-    var vaoID = createVAO();
+    const vaoID = createVAO();
 
     storeDataInAttributeList(0, 3, positions);
     storeDataInAttributeList(1, 2, textureCoords);
@@ -61,7 +61,7 @@ function loadToVAO(positions, textureCoords, normals, indices) {
 }
 
 function loadPositionsToVAO(positions, dimensions) {
-    let vaoID = createVAO();
+    const vaoID = createVAO();
     storeDataInAttributeList(0, dimensions, positions);
     unbindVAO();
 
@@ -69,27 +69,30 @@ function loadPositionsToVAO(positions, dimensions) {
 }
 
 function loadTexture(imageUrl, callback) {
-    var image = new Image();
-    var texture = gl.createTexture();
+    const image = new Image();
+    const texture = gl.createTexture();
 
     textures.push(texture);
 
     texture.image = image;
-    image.onload = function () {
+    image.onload = () => {
         handleLoadedTexture(texture);
         callback(texture);
-    }
+    };
     image.src = imageUrl;
 
     return texture;
 }
 
 function loadCubeMapTextureCompleted(texture, callback) {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    // gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
     textures.push(texture);
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
 
@@ -102,44 +105,40 @@ function loadCubeMapTexture(texture, textureFiles, index, callback) {
         return;
     }
 
-    let image = new Image();
+    const image = new Image();
     image.src = textureFiles[index];
     image.onload = () => {
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + index,  0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + index, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         loadCubeMapTexture(texture, textureFiles, index + 1, callback);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
     };
 }
 
 function loadCubeMap(textureFiles, callback) {
-    let texture = gl.createTexture();
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
-
+    const texture = gl.createTexture();
     loadCubeMapTexture(texture, textureFiles, 0, callback);
 }
 
-var self = module.exports = {
-    loadToVAO: loadToVAO,
+function cleanUp() {
+    vaos.forEach((vao) => {
+        gl.deleteVertexArray(vao);
+    });
 
-    loadPositionsToVAO: loadPositionsToVAO,
+    vbos.forEach((vbo) => {
+        gl.deleteBuffer(vbo);
+    });
 
-    loadTexture: loadTexture,
+    textures.forEach((texture) => {
+        gl.deleteTexture(texture);
+    });
+}
 
-    loadCubeMap: loadCubeMap,
-
-    cleanUp: function() {
-        for (let vao of vaos) {
-            gl.deleteVertexArray(vao);
-        }
-
-        for (let vbo of vbos) {
-            gl.deleteBuffer(vbo);
-        }
-
-        for (let texture of textures) {
-            gl.deleteTexture(texture);
-        }
-    },
+module.exports = {
+    loadToVAO,
+    loadPositionsToVAO,
+    loadTexture,
+    loadCubeMap,
+    cleanUp,
 };

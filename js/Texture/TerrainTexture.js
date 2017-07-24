@@ -1,8 +1,9 @@
-function TerrainTexture(id) {
-    this.textureID = id;
-
+class TerrainTexture {
+    constructor(id) {
+        this.textureID = id;
+    }
 }
 
-var self = module.exports = {
-    TerrainTexture: TerrainTexture,
+module.exports = {
+    TerrainTexture,
 };

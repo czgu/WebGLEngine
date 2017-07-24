@@ -1,3 +1,3 @@
-var self = module.exports = {
+module.exports = {
     MAX_LIGHTS: 4,
 };

@@ -1,11 +1,11 @@
-function GUITexture(texture, position, scale) {
-    this.texture = texture;
-    this.position = position;
-    this.scale = scale;
-
+class GUITexture {
+    constructor(texture, position, scale) {
+        this.texture = texture;
+        this.position = position;
+        this.scale = scale;
+    }
 }
 
-
-var self = module.exports = {
-    GUITexture: GUITexture,
-}
+module.exports = {
+    GUITexture,
+};

@@ -1,185 +1,185 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var MathUtil = require('../Util/MathUtil.js');
+const MathUtil = require('../Util/MathUtil.js');
 
-function Camera(player) {
-    this.position = [0,0,0];
-    this.pitch = MathUtil.toRadians(30);
-    this.yaw = 0;
-    this.roll = 0;
+class Camera {
+    constructor(player) {
+        this.position = [0, 0, 0];
+        this.pitch = MathUtil.toRadians(30);
+        this.yaw = 0;
+        this.roll = 0;
 
-    this.player = player;
-    this.distanceFromPlayer = 30.0;
-    this.angleAroundPlayer = 0;
+        this.player = player;
+        this.distanceFromPlayer = 30.0;
+        this.angleAroundPlayer = 0;
 
-    mouseInfo.mouseWheelCallback = this.calculateZoom(this);
-}
+        mouseInfo.mouseWheelCallback = this.calculateZoom(this);
+    }
 
-const SPEED = 0.5;
+    move() {
+        this.calculatePitch();
+        this.calculateAngleAroundPlayer();
 
-Camera.prototype.move = function() {
-    this.calculatePitch();
-    this.calculateAngleAroundPlayer();
+        this.calculateCameraPosition();
 
-    this.calculateCameraPosition();
+        this.yaw = Math.PI - (this.player.rotation[1] + this.angleAroundPlayer);
+    }
 
-    this.yaw = Math.PI - (this.player.rotation[1] + this.angleAroundPlayer);
-}
+    calculateZoom(self) {
+        return (zoomLevel) => {
+            self.distanceFromPlayer -= zoomLevel * 0.01;
+            self.distanceFromPlayer = MathUtil.clamp(self.distanceFromPlayer, 5, 100);
+        };
+    }
 
+    calculatePitch() {
+        if (mouseInfo.buttonPressed[2]) {
+            const pitchChange = mouseInfo.buttonDelta[2][1] * 0.01;
+            this.pitch -= pitchChange;
+            this.pitch = MathUtil.clamp(this.pitch, -Math.PI / 2, Math.PI / 2);
+        }
+    }
 
-Camera.prototype.calculateZoom = (_this) => {
-    return (zoomLevel) => {
-        _this.distanceFromPlayer -= zoomLevel * 0.01;
-        _this.distanceFromPlayer = MathUtil.clamp(_this.distanceFromPlayer, 5, 100);
-    };
-}
+    calculateAngleAroundPlayer() {
+        if (mouseInfo.buttonPressed[0]) {
+            const angleChange = mouseInfo.buttonDelta[0][0] * 0.01;
+            this.angleAroundPlayer -= angleChange;
+        }
+    }
 
-Camera.prototype.calculatePitch = function() {
-    if(mouseInfo.buttonPressed[2]) {
-        let pitchChange = mouseInfo.buttonDelta[2][1] * 0.01;
-        this.pitch -= pitchChange;
-        this.pitch = MathUtil.clamp(this.pitch, -Math.PI / 2, Math.PI / 2);
+    calculateCameraPosition() {
+        const horizontalDistance = (this.distanceFromPlayer * Math.cos(this.pitch));
+        const verticalDistance = (this.distanceFromPlayer * Math.sin(this.pitch));
+
+        this.position[1] = this.player.position[1] + verticalDistance;
+        const angleXZ = this.player.rotation[1] + this.angleAroundPlayer;
+        const dx = horizontalDistance * Math.sin(angleXZ);
+        const dz = horizontalDistance * Math.cos(angleXZ);
+
+        this.position[0] = this.player.position[0] - dx;
+        this.position[2] = this.player.position[2] - dz;
     }
 }
 
-Camera.prototype.calculateAngleAroundPlayer = function() {
-    if (mouseInfo.buttonPressed[0]) {
-        let angleChange = mouseInfo.buttonDelta[0][0] * 0.01;
-        this.angleAroundPlayer -= angleChange;
-    }
-}
-
-Camera.prototype.calculateCameraPosition = function() {
-    let horizontalDistance = (this.distanceFromPlayer * Math.cos(this.pitch));
-    let verticalDistance = (this.distanceFromPlayer * Math.sin(this.pitch));
-
-    this.position[1] = this.player.position[1] + verticalDistance;
-    let angleXZ = this.player.rotation[1] + this.angleAroundPlayer;
-    let dx = horizontalDistance * Math.sin(angleXZ);
-    let dz = horizontalDistance * Math.cos(angleXZ);
-
-    this.position[0] = this.player.position[0] - dx;
-    this.position[2] = this.player.position[2] - dz;
-}
-
-var self = module.exports = {
-    Camera: Camera,
-}
+module.exports = {
+    Camera,
+};
 
 },{"../Util/MathUtil.js":35}],2:[function(require,module,exports){
-var RawModel = require('../Model/TexturedModel.js');
-
 // TexturedModel
-function Entity(texturedModel, position, rot, scale, textureIndex=0) {
-    this.texturedModel = texturedModel;
-    this.position = position;
-    this.rotation = rot;
-    this.scale = scale;
+class Entity {
+    constructor(texturedModel, position, rot, scale, textureIndex = 0) {
+        this.texturedModel = texturedModel;
+        this.position = position;
+        this.rotation = rot;
+        this.scale = scale;
 
-    this.textureIndex = textureIndex;
+        this.textureIndex = textureIndex;
+    }
+
+    increasePosition(dv) {
+        vec3.add(this.position, this.position, dv);
+    }
+
+    increaseRotation(dv) {
+        vec3.add(this.rotation, this.rotation, dv);
+    }
+
+    getTextureXYOffset() {
+        const column = (this.textureIndex % this.texturedModel.texture.numberOfRows) / this.texturedModel.texture.numberOfRows;
+        const row = Math.floor(this.textureIndex / this.texturedModel.texture.numberOfRows) / this.texturedModel.texture.numberOfRows;
+
+        return [column, row];
+    }
 }
 
-Entity.prototype.increasePosition = function(dv) {
-    vec3.add(this.position, this.position, dv);
+module.exports = {
+    Entity,
+};
+
+},{}],3:[function(require,module,exports){
+class Light {
+    constructor(position, color, attenuation = undefined) {
+        this.position = position;
+        this.color = color;
+        this.attenuation = attenuation || [1, 0, 0];
+    }
 }
 
-Entity.prototype.increaseRotation = function(dv) {
-    vec3.add(this.rotation, this.rotation, dv);
-}
-
-Entity.prototype.getTextureXYOffset = function() {
-    let column = (this.textureIndex % this.texturedModel.texture.numberOfRows) / this.texturedModel.texture.numberOfRows;
-    let row = Math.floor(this.textureIndex / this.texturedModel.texture.numberOfRows) / this.texturedModel.texture.numberOfRows;
-
-    return [column, row];
-}
-
-var self = module.exports = {
-    Entity: Entity,
-}
-
-},{"../Model/TexturedModel.js":11}],3:[function(require,module,exports){
-function Light(position, color, attenuation=undefined) {
-    this.position = position;
-    this.color = color;
-    this.attenuation = attenuation ? attenuation : [1, 0, 0] ;
-}
-
-var self = module.exports = {
-    Light: Light
+module.exports = {
+    Light,
 };
 
 },{}],4:[function(require,module,exports){
-var Entity = require('./Entity.js');
-var Display = require('../RenderEngine/Display.js');
-var MathUtil = require('../Util/MathUtil.js');
-
-function Player(texturedModel, position, rot, scale) {
-    Entity.Entity.call(this, texturedModel, position, rot, scale);
-
-    this.currentSpeed = 0;
-    this.currentTurnSpeed = 0;
-    this.upwardSpeed = 0;
-    this.isInAir = false;
-}
-
-Player.prototype = Object.create(Entity.Entity.prototype);
-Player.prototype.constructor = Player;
+const Entity = require('./Entity.js');
+const Display = require('../RenderEngine/Display.js');
+const MathUtil = require('../Util/MathUtil.js');
 
 const RUN_SPEED = 20;
 const TURN_SPEED = MathUtil.toRadians(160);
 const GRAVITY = -2;
 const JUMP_POWER = 1;
 
-Player.prototype.checkInputs = function() {
-    if (currentlyPressedKeys[87]) { // W
-        this.currentSpeed = RUN_SPEED;
-    } else if (currentlyPressedKeys[83]) { // S
-        this.currentSpeed = -RUN_SPEED;
-    } else {
+class Player extends Entity.Entity {
+    constructor(texturedModel, position, rot, scale) {
+        super(texturedModel, position, rot, scale);
+
         this.currentSpeed = 0;
-    }
-
-    if (currentlyPressedKeys[68]) { // D
-        this.currentTurnSpeed = -TURN_SPEED;
-    } else if (currentlyPressedKeys[65]) { // A
-        this.currentTurnSpeed = TURN_SPEED;
-    } else {
         this.currentTurnSpeed = 0;
-    }
-
-    if (currentlyPressedKeys[32] && !this.isInAir) { // SPACE
-        this.upwardSpeed = JUMP_POWER;
-        this.isInAir = true;
-    }
-}
-
-Player.prototype.move = function(terrain) {
-    this.checkInputs();
-    this.increaseRotation([0, this.currentTurnSpeed * Display.delta, 0]);
-
-    let distance = this.currentSpeed * Display.delta;
-    let dx = Math.sin(this.rotation[1]) * distance;
-    let dz = Math.cos(this.rotation[1]) * distance;
-
-    this.upwardSpeed += GRAVITY * Display.delta;
-
-    this.increasePosition([dx, this.upwardSpeed, dz]);
-
-    let terrainHeight = terrain.getTerrainHeight(this.position[0], this.position[2]);
-    if (this.position[1] < terrainHeight) {
-        this.isInAir = false;
         this.upwardSpeed = 0;
-        this.position[1] = terrainHeight;
+        this.isInAir = false;
     }
-    if (this.lastHeight != terrainHeight) {
-        console.log(terrainHeight);
+
+    checkInputs() {
+        if (currentlyPressedKeys[87]) { // W
+            this.currentSpeed = RUN_SPEED;
+        } else if (currentlyPressedKeys[83]) { // S
+            this.currentSpeed = -RUN_SPEED;
+        } else {
+            this.currentSpeed = 0;
+        }
+
+        if (currentlyPressedKeys[68]) { // D
+            this.currentTurnSpeed = -TURN_SPEED;
+        } else if (currentlyPressedKeys[65]) { // A
+            this.currentTurnSpeed = TURN_SPEED;
+        } else {
+            this.currentTurnSpeed = 0;
+        }
+
+        if (currentlyPressedKeys[32] && !this.isInAir) { // SPACE
+            this.upwardSpeed = JUMP_POWER;
+            this.isInAir = true;
+        }
     }
-    this.lastHeight = terrainHeight;
+
+    move(terrain) {
+        this.checkInputs();
+        this.increaseRotation([0, this.currentTurnSpeed * Display.delta, 0]);
+
+        const distance = this.currentSpeed * Display.delta;
+        const dx = Math.sin(this.rotation[1]) * distance;
+        const dz = Math.cos(this.rotation[1]) * distance;
+
+        this.upwardSpeed += GRAVITY * Display.delta;
+
+        this.increasePosition([dx, this.upwardSpeed, dz]);
+
+        const terrainHeight = terrain.getTerrainHeight(this.position[0], this.position[2]);
+        if (this.position[1] < terrainHeight) {
+            this.isInAir = false;
+            this.upwardSpeed = 0;
+            this.position[1] = terrainHeight;
+        }
+        if (this.lastHeight !== terrainHeight) {
+            // console.log(terrainHeight);
+        }
+        this.lastHeight = terrainHeight;
+    }
 }
 
-var self = module.exports = {
-    Player: Player,
-}
+module.exports = {
+    Player,
+};
 
 },{"../RenderEngine/Display.js":12,"../Util/MathUtil.js":35,"./Entity.js":2}],5:[function(require,module,exports){
 module.exports = function parse(params){
@@ -228,15 +228,15 @@ module.exports = function parse(params){
     };
 
 },{}],7:[function(require,module,exports){
-var Loader = require('../RenderEngine/Loader.js');
-var GUIShader = require('./GUIShader.js');
-var MathUtil = require('../Util/MathUtil.js');
+const Loader = require('../RenderEngine/Loader.js');
+const GUIShader = require('./GUIShader.js');
+const MathUtil = require('../Util/MathUtil.js');
 
-let quad = undefined;
-let shader = undefined;
+let quad;
+let shader;
 
 function initialize() {
-    let positions = [-1, 1, -1, -1, 1, 1, 1, -1];
+    const positions = [-1, 1, -1, -1, 1, 1, 1, -1];
     quad = Loader.loadPositionsToVAO(positions, 2);
     shader = new GUIShader.GUIShader();
 }
@@ -254,7 +254,7 @@ function render(guis) {
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, gui.texture.textureID);
 
-        let transformationMatrix = MathUtil.create2DTransformationMatrix(gui.position, gui.scale);
+        const transformationMatrix = MathUtil.create2DTransformationMatrix(gui.position, gui.scale);
         shader.loadTransMatrix(transformationMatrix);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, quad.vertexCount);
@@ -272,117 +272,120 @@ function cleanUp() {
 }
 
 
-var self = module.exports = {
-    initialize: initialize,
-    render, render,
-    cleanUp: cleanUp,
-}
+module.exports = {
+    initialize,
+    render,
+    cleanUp,
+};
 
 },{"../RenderEngine/Loader.js":14,"../Util/MathUtil.js":35,"./GUIShader.js":8}],8:[function(require,module,exports){
-var ShaderProgram = require('../Shader/ShaderProgram.js');
-var MathUtil = require('../Util/MathUtil.js');
+const ShaderProgram = require('../Shader/ShaderProgram.js');
 
 const VERTEX_SHADER = require('./GLSL/GUIVertexShader.c');
 const FRAGMENT_SHADER = require('./GLSL/GUIFragmentShader.c');
 
-function GUIShader() {
-    ShaderProgram.ShaderProgram.call(this, VERTEX_SHADER, FRAGMENT_SHADER);
-}
-GUIShader.prototype = Object.create(ShaderProgram.ShaderProgram.prototype);
-GUIShader.prototype.constructor = GUIShader;
+class GUIShader extends ShaderProgram.ShaderProgram {
+    constructor() {
+        super(VERTEX_SHADER, FRAGMENT_SHADER);
+    }
 
-GUIShader.prototype.bindAttributes = function() {
-    this.bindAttribute(0, "position");
-}
+    bindAttributes() {
+        this.bindAttribute(0, 'position');
+    }
 
-GUIShader.prototype.getAllUniformLocations = function() {
-    this.transformationMatrixLocation = this.getUniformLocation("transformationMatrix");
-}
+    getAllUniformLocations() {
+        this.transformationMatrixLocation = this.getUniformLocation('transformationMatrix');
+    }
 
-GUIShader.prototype.loadTransMatrix = function(matrix) {
-    this.loadMatrix(this.transformationMatrixLocation, matrix);
-}
-
-var self = module.exports = {
-    GUIShader: GUIShader,
+    loadTransMatrix(matrix) {
+        this.loadMatrix(this.transformationMatrixLocation, matrix);
+    }
 }
 
-},{"../Shader/ShaderProgram.js":22,"../Util/MathUtil.js":35,"./GLSL/GUIFragmentShader.c":5,"./GLSL/GUIVertexShader.c":6}],9:[function(require,module,exports){
-function GUITexture(texture, position, scale) {
-    this.texture = texture;
-    this.position = position;
-    this.scale = scale;
+module.exports = {
+    GUIShader,
+};
 
+},{"../Shader/ShaderProgram.js":22,"./GLSL/GUIFragmentShader.c":5,"./GLSL/GUIVertexShader.c":6}],9:[function(require,module,exports){
+class GUITexture {
+    constructor(texture, position, scale) {
+        this.texture = texture;
+        this.position = position;
+        this.scale = scale;
+    }
 }
 
-
-var self = module.exports = {
-    GUITexture: GUITexture,
-}
+module.exports = {
+    GUITexture,
+};
 
 },{}],10:[function(require,module,exports){
 let serialNumber = 0;
 
-var self = module.exports = {
-    RawModel:  function (id, count) {
+class RawModel {
+    constructor(id, count) {
         this.vaoID = id;
         this.vertexCount = count;
 
         this.serialNumber = serialNumber;
         serialNumber += 1;
-    },
+    }
+}
+
+module.exports = {
+    RawModel,
 };
 
 },{}],11:[function(require,module,exports){
-var RawModel = require('./RawModel.js');
-
-function TexturedModel(model, texture) {
-    this.rawModel = model;
-    this.texture = texture; // ModeelTexture
+class TexturedModel {
+    constructor(model, texture) {
+        this.rawModel = model;
+        this.texture = texture; // ModeelTexture
+    }
 }
 
-var self = module.exports = {
-    TexturedModel: TexturedModel,
-}
+module.exports = {
+    TexturedModel,
+};
 
-},{"./RawModel.js":10}],12:[function(require,module,exports){
-var lastFrameTime;
+},{}],12:[function(require,module,exports){
+let lastFrameTime;
 
 function getCurrentTime() {
     return new Date().getTime();
 }
 
-var self = module.exports = {
-    createDisplay: function() {
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-        lastFrameTime = getCurrentTime();
-    },
+function createDisplay() {
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    lastFrameTime = getCurrentTime();
+}
 
-    updateDisplay: function() {
-        let currentFrameTime = getCurrentTime();
-        self.delta = (currentFrameTime - lastFrameTime) / 1000;
-        lastFrameTime = currentFrameTime;
+function updateDisplay() {
+    const currentFrameTime = getCurrentTime();
+    self.delta = (currentFrameTime - lastFrameTime) / 1000;
+    lastFrameTime = currentFrameTime;
 
-        return true;
-    },
+    return true;
+}
 
-    closeDisplay: function() {
+function closeDisplay() {
 
-    },
+}
 
+module.exports = {
+    createDisplay,
+    updateDisplay,
+    closeDisplay,
     delta: undefined,
 };
+const self = module.exports;
 
 },{}],13:[function(require,module,exports){
-var RawModel = require('../Model/RawModel.js');
-var MathUtil = require('../Util/MathUtil.js');
-var Util = require('../Util/Util.js');
-var TexturedModel = require('../Model/TexturedModel.js');
-var Entity = require('../Entities/Entity.js');
-var MasterRenderer = require('./MasterRenderer.js');
+const MathUtil = require('../Util/MathUtil.js');
+const Util = require('../Util/Util.js');
 
-var projectionMatrix;
-var shader;
+let projectionMatrix;
+let shader;
 
 function initialize(_shader, _projectionMatrix) {
     shader = _shader;
@@ -394,12 +397,12 @@ function initialize(_shader, _projectionMatrix) {
 }
 
 function render(texturedModelEntities) {
-    texturedModelEntities.forEach(function(texturedModelEntitiesPair) {
-        let texturedModel = texturedModelEntitiesPair[0];
-        let entities = texturedModelEntitiesPair[1];
+    texturedModelEntities.forEach((texturedModelEntitiesPair) => {
+        const texturedModel = texturedModelEntitiesPair[0];
+        const entities = texturedModelEntitiesPair[1];
 
         preparedTexturedModel(texturedModel);
-        entities.forEach(function(entity) {
+        entities.forEach((entity) => {
             prepareInstance(entity);
             gl.drawElements(
                 gl.TRIANGLES, texturedModel.rawModel.vertexCount, gl.UNSIGNED_INT, 0);
@@ -409,7 +412,7 @@ function render(texturedModelEntities) {
 }
 
 function preparedTexturedModel(texturedModel) {
-    var model = texturedModel.rawModel;
+    const model = texturedModel.rawModel;
 
     gl.bindVertexArray(model.vaoID);
 
@@ -417,7 +420,7 @@ function preparedTexturedModel(texturedModel) {
     gl.enableVertexAttribArray(1);
     gl.enableVertexAttribArray(2);
 
-    var texture = texturedModel.texture;
+    const texture = texturedModel.texture;
     shader.loadNumberOfRows(texture.numberOfRows);
     if (texture.hasTransparency) {
         Util.disableCulling();
@@ -439,26 +442,26 @@ function unbindTexturedModel() {
 }
 
 function prepareInstance(entity) {
-    var mvMatrix = MathUtil.createTransformationMatrix(
+    const mvMatrix = MathUtil.createTransformationMatrix(
         entity.position, entity.rotation, entity.scale);
     shader.loadTransMatrix(mvMatrix);
     shader.loadOffset(entity.getTextureXYOffset());
 }
 
-var self = module.exports = {
-    initialize: initialize,
-    render: render,
+module.exports = {
+    initialize,
+    render,
 };
 
-},{"../Entities/Entity.js":2,"../Model/RawModel.js":10,"../Model/TexturedModel.js":11,"../Util/MathUtil.js":35,"../Util/Util.js":36,"./MasterRenderer.js":15}],14:[function(require,module,exports){
-var RawModel = require('../Model/RawModel.js');
+},{"../Util/MathUtil.js":35,"../Util/Util.js":36}],14:[function(require,module,exports){
+const RawModel = require('../Model/RawModel.js');
 
-var vaos = [];
-var vbos = [];
-var textures = [];
+const vaos = [];
+const vbos = [];
+const textures = [];
 
 function createVAO() {
-    var vaoID = gl.createVertexArray();
+    const vaoID = gl.createVertexArray();
     vaos.push(vaoID);
 
     gl.bindVertexArray(vaoID);
@@ -466,7 +469,7 @@ function createVAO() {
 }
 
 function storeDataInAttributeList(attribute, itemSize, data) {
-    var vboID = gl.createBuffer();
+    const vboID = gl.createBuffer();
     vbos.push(vboID);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vboID);
@@ -476,7 +479,7 @@ function storeDataInAttributeList(attribute, itemSize, data) {
 }
 
 function bindIndicesBuffer(indices) {
-    var vboID = gl.createBuffer();
+    const vboID = gl.createBuffer();
     vbos.push(vboID);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vboID);
@@ -503,7 +506,7 @@ function handleLoadedTexture(texture) {
 }
 
 function loadToVAO(positions, textureCoords, normals, indices) {
-    var vaoID = createVAO();
+    const vaoID = createVAO();
 
     storeDataInAttributeList(0, 3, positions);
     storeDataInAttributeList(1, 2, textureCoords);
@@ -514,7 +517,7 @@ function loadToVAO(positions, textureCoords, normals, indices) {
 }
 
 function loadPositionsToVAO(positions, dimensions) {
-    let vaoID = createVAO();
+    const vaoID = createVAO();
     storeDataInAttributeList(0, dimensions, positions);
     unbindVAO();
 
@@ -522,27 +525,30 @@ function loadPositionsToVAO(positions, dimensions) {
 }
 
 function loadTexture(imageUrl, callback) {
-    var image = new Image();
-    var texture = gl.createTexture();
+    const image = new Image();
+    const texture = gl.createTexture();
 
     textures.push(texture);
 
     texture.image = image;
-    image.onload = function () {
+    image.onload = () => {
         handleLoadedTexture(texture);
         callback(texture);
-    }
+    };
     image.src = imageUrl;
 
     return texture;
 }
 
 function loadCubeMapTextureCompleted(texture, callback) {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    // gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
     textures.push(texture);
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
 
@@ -555,71 +561,67 @@ function loadCubeMapTexture(texture, textureFiles, index, callback) {
         return;
     }
 
-    let image = new Image();
+    const image = new Image();
     image.src = textureFiles[index];
     image.onload = () => {
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + index,  0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + index, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         loadCubeMapTexture(texture, textureFiles, index + 1, callback);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
     };
 }
 
 function loadCubeMap(textureFiles, callback) {
-    let texture = gl.createTexture();
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
-
+    const texture = gl.createTexture();
     loadCubeMapTexture(texture, textureFiles, 0, callback);
 }
 
-var self = module.exports = {
-    loadToVAO: loadToVAO,
+function cleanUp() {
+    vaos.forEach((vao) => {
+        gl.deleteVertexArray(vao);
+    });
 
-    loadPositionsToVAO: loadPositionsToVAO,
+    vbos.forEach((vbo) => {
+        gl.deleteBuffer(vbo);
+    });
 
-    loadTexture: loadTexture,
+    textures.forEach((texture) => {
+        gl.deleteTexture(texture);
+    });
+}
 
-    loadCubeMap: loadCubeMap,
-
-    cleanUp: function() {
-        for (let vao of vaos) {
-            gl.deleteVertexArray(vao);
-        }
-
-        for (let vbo of vbos) {
-            gl.deleteBuffer(vbo);
-        }
-
-        for (let texture of textures) {
-            gl.deleteTexture(texture);
-        }
-    },
+module.exports = {
+    loadToVAO,
+    loadPositionsToVAO,
+    loadTexture,
+    loadCubeMap,
+    cleanUp,
 };
 
 },{"../Model/RawModel.js":10}],15:[function(require,module,exports){
-var StaticShader = require('../Shader/StaticShader.js');
-var EntityRenderer = require('./EntityRenderer.js');
-var TerrainShader = require('../Shader/TerrainShader.js');
-var TerrainRenderer = require('./TerrainRenderer.js');
-var SkyboxRenderer = require('../Skybox/SkyboxRenderer.js');
-var Util = require('../Util/Util.js');
+const StaticShader = require('../Shader/StaticShader.js');
+const EntityRenderer = require('./EntityRenderer.js');
+const TerrainShader = require('../Shader/TerrainShader.js');
+const TerrainRenderer = require('./TerrainRenderer.js');
+const SkyboxRenderer = require('../Skybox/SkyboxRenderer.js');
+const Util = require('../Util/Util.js');
 
-var shader;
-var terrainShader;
+let shader;
+let terrainShader;
 
-var texturedModelEntities = [];
-var texturedModelIndicesLookUp = {};
+const texturedModelEntities = [];
+let texturedModelIndicesLookUp = {};
 
-var terrains = [];
+const terrains = [];
 
 // ProjectionMatrix related
 const FOV = 70;
 const NEAR_PLANE = 0.1;
 const FAR_PLANE = 1000;
-var projectionMatrix = mat4.create();
+const projectionMatrix = mat4.create();
 
-var skyColor = [0.5, 0.5, 0.5];
+const skyColor = [0.5, 0.5, 0.5];
 
 function initialize() {
     mat4.perspective(projectionMatrix, FOV, gl.viewportWidth / gl.viewportHeight, NEAR_PLANE, FAR_PLANE);
@@ -634,7 +636,6 @@ function initialize() {
     TerrainRenderer.initialize(terrainShader, projectionMatrix);
 
     SkyboxRenderer.initialize(projectionMatrix);
-
 }
 
 function render(lights, camera) {
@@ -654,7 +655,7 @@ function render(lights, camera) {
     TerrainRenderer.render(terrains);
     terrainShader.stop();
 
-    SkyboxRenderer.render(camera);
+    SkyboxRenderer.render(camera, skyColor);
 
     texturedModelEntities.length = 0;
     texturedModelIndicesLookUp = {};
@@ -663,13 +664,12 @@ function render(lights, camera) {
 }
 
 function processEntity(entity) {
-    let texturedModel = entity.texturedModel;
-    let key = texturedModel.rawModel.serialNumber + "," + texturedModel.texture.serialNumber;
-
+    const texturedModel = entity.texturedModel;
+    const key = `${texturedModel.rawModel.serialNumber}, ${texturedModel.texture.serialNumber}`;
     if (key in texturedModelIndicesLookUp) {
         texturedModelEntities[texturedModelIndicesLookUp[key]][1].push(entity);
     } else {
-        let value = texturedModelEntities.length;
+        const value = texturedModelEntities.length;
         texturedModelIndicesLookUp[key] = value;
         texturedModelEntities.push([texturedModel, [entity]]);
     }
@@ -691,26 +691,24 @@ function prepare() {
     gl.clearColor(skyColor[0], skyColor[1], skyColor[2], 1.0);
 }
 
-
-
-var self = module.exports = {
-    render: render,
-    processEntity: processEntity,
-    processTerrain: processTerrain,
-    cleanUp: cleanUp,
-    initialize: initialize,
-}
+module.exports = {
+    render,
+    processEntity,
+    processTerrain,
+    cleanUp,
+    initialize,
+};
 
 },{"../Shader/StaticShader.js":23,"../Shader/TerrainShader.js":24,"../Skybox/SkyboxRenderer.js":27,"../Util/Util.js":36,"./EntityRenderer.js":13,"./TerrainRenderer.js":17}],16:[function(require,module,exports){
-var Util = require('../Util/Util.js');
-var Loader = require('./Loader.js');
+const Util = require('../Util/Util.js');
+const Loader = require('./Loader.js');
 
 function processVertex(vertexData, vertices, indices) {
-    let vertexIndex = parseInt(vertexData[0]) - 1;
-    let vertex = vertices[vertexIndex];
+    const vertexIndex = parseInt(vertexData[0], 10) - 1;
+    const vertex = vertices[vertexIndex];
 
-    let textureIndex = parseInt(vertexData[1]) - 1;
-    let normalIndex = parseInt(vertexData[2]) - 1;
+    const textureIndex = parseInt(vertexData[1], 10) - 1;
+    const normalIndex = parseInt(vertexData[2], 10) - 1;
 
     if (!vertex.isSet()) {
         vertex.textureIndex = textureIndex;
@@ -725,9 +723,9 @@ function dealWithAlreadyProcessedVertex(vertex, textureIndex, normalIndex, indic
     if (vertex.hasSameTextureAndNormal(textureIndex, normalIndex)) {
         indices.push(vertex.index);
     } else {
-        let similarVertex = vertex.duplicateVertex;
+        const similarVertex = vertex.duplicateVertex;
         if (similarVertex == null) {
-            let duplicateVertex = new Vertex(vertices.length, vertex.position);
+            const duplicateVertex = new Vertex(vertices.length, vertex.position);
             duplicateVertex.textureIndex = textureIndex;
             duplicateVertex.normalIndex = normalIndex;
 
@@ -755,9 +753,9 @@ function convertDataToArrays(vertices, textures, normals, verticesArray, texture
     vertices.forEach((vertex) => {
         furthestPoint = Math.max(vertex.length, furthestPoint);
 
-        let position = vertex.position;
-        let textureCoord = textures[vertex.textureIndex];
-        let normalVector = normals[vertex.normalIndex];
+        const position = vertex.position;
+        const textureCoord = textures[vertex.textureIndex];
+        const normalVector = normals[vertex.normalIndex];
 
         verticesArray[i * 3] = position[0];
         verticesArray[i * 3 + 1] = position[1];
@@ -770,47 +768,43 @@ function convertDataToArrays(vertices, textures, normals, verticesArray, texture
         normalsArray[i * 3 + 1] = normalVector[1];
         normalsArray[i * 3 + 2] = normalVector[2];
 
-         i++;
+         i += 1;
     });
 
     return furthestPoint;
 }
 
 function loadOBJModel(fileName, callback) {
-    new Util.Ajax().get(fileName, function(data, status) {
+    new Util.Ajax().get(fileName, (data, status) => {
         if (status === 200) {
-            self.parseOBJModel(data, callback);
+            parseOBJModel(data, callback);
         } else {
-            alert('Failed to load ' + fileName);
+            alert(`Failed to load ${fileName}`);
         }
-    })
+    });
 }
 
 function parseOBJModel(file, callback) {
-    let lines = file.split('\n');
+    const lines = file.split('\n');
 
-    var vertices = [];
-    var textures = [];
-    var normals = [];
-    var indices = [];
+    const vertices = [];
+    const textures = [];
+    const normals = [];
+    const indices = [];
 
-    var texturesArray;
-    var normalsArray;
-    var verticesArray;
-
-    var i = 0;
+    let i = 0;
     while (i < lines.length) {
-        let line = lines[i];
-        let currentLine = line.split(' ');
+        const line = lines[i];
+        const currentLine = line.split(' ');
         if (line.startsWith('v ')) {
-            let vertex = new Vertex(
+            const vertex = new Vertex(
                 vertices.length, [parseFloat(currentLine[1]), parseFloat(currentLine[2]), parseFloat(currentLine[3])]);
             vertices.push(vertex);
         } else if (line.startsWith('vt ')) {
-            let texture = [parseFloat(currentLine[1]), parseFloat(currentLine[2])];
+            const texture = [parseFloat(currentLine[1]), parseFloat(currentLine[2])];
             textures.push(texture);
         } else if (line.startsWith('vn ')) {
-            let normal = [parseFloat(currentLine[1]), parseFloat(currentLine[2]), parseFloat(currentLine[3])];
+            const normal = [parseFloat(currentLine[1]), parseFloat(currentLine[2]), parseFloat(currentLine[3])];
             normals.push(normal);
         } else if (line.startsWith('f ')) {
             break;
@@ -820,15 +814,15 @@ function parseOBJModel(file, callback) {
 
 
     while (i < lines.length) {
-        let line = lines[i];
+        const line = lines[i];
         i += 1;
 
         if (!line.startsWith('f ')) {
             continue;
         }
 
-        let currentLine = line.split(' ');
-        let verticesData = [1, 2, 3].map((n) => currentLine[n].split('/'));
+        const currentLine = line.split(' ');
+        const verticesData = [1, 2, 3].map(n => currentLine[n].split('/'));
 
         verticesData.forEach((vertexData) => {
             processVertex(vertexData, vertices, indices);
@@ -837,56 +831,57 @@ function parseOBJModel(file, callback) {
 
     removeUnusedVertices(vertices);
 
-    verticesArray = new Array(vertices.length * 3);
-    texturesArray = new Array(vertices.length * 2);
-    normalsArray = new Array(vertices.length * 3);
+    const verticesArray = new Array(vertices.length * 3);
+    const texturesArray = new Array(vertices.length * 2);
+    const normalsArray = new Array(vertices.length * 3);
 
-    let furthestPoint = convertDataToArrays(vertices, textures, normals, verticesArray, texturesArray, normalsArray);
-    let modelData = new ModelData(verticesArray, texturesArray, normalsArray, indices, furthestPoint);
-    let model = Loader.loadToVAO(modelData.vertices, modelData.textures, modelData.normals, modelData.indices);
+    const furthestPoint = convertDataToArrays(vertices, textures, normals, verticesArray, texturesArray, normalsArray);
+    const modelData = new ModelData(verticesArray, texturesArray, normalsArray, indices, furthestPoint);
+    const model = Loader.loadToVAO(modelData.vertices, modelData.textures, modelData.normals, modelData.indices);
     callback(model, modelData);
 }
 
-function ModelData(vertices, textures, normals, indices, furthestPoint) {
-    this.vertices = vertices;
-    this.textures = textures;
-    this.normals = normals;
-    this.indices = indices;
-    this.furthestPoint = furthestPoint;
+class ModelData {
+    constructor(vertices, textures, normals, indices, furthestPoint) {
+        this.vertices = vertices;
+        this.textures = textures;
+        this.normals = normals;
+        this.indices = indices;
+        this.furthestPoint = furthestPoint;
+    }
 }
 
-function Vertex(index, position) {
-    this.index = index;
-    this.position = position;
-    this.length = vec3.length(position);
+class Vertex {
+    constructor(index, position) {
+        this.index = index;
+        this.position = position;
+        this.length = vec3.length(position);
 
-    this.textureIndex = undefined;
-    this.normalIndex = undefined;
-    this.duplicateVertex = null;
+        this.textureIndex = undefined;
+        this.normalIndex = undefined;
+        this.duplicateVertex = null;
+    }
+
+    isSet() {
+        return this.textureIndex !== undefined && this.normalIndex !== undefined;
+    }
+
+    hasSameTextureAndNormal(textureIndex, normalIndex) {
+        return this.textureIndex === textureIndex && this.normalIndex === normalIndex;
+    }
 }
 
-Vertex.prototype.isSet = function() {
-    return this.textureIndex != undefined && this.normalIndex != undefined;
-}
-
-Vertex.prototype.hasSameTextureAndNormal = function(textureIndex, normalIndex) {
-    return this.textureIndex == textureIndex && this.normalIndex == normalIndex;
-}
-
-var self = module.exports = {
-    loadOBJModel: loadOBJModel,
-    parseOBJModel: parseOBJModel,
-    ModelData: ModelData,
-}
+module.exports = {
+    loadOBJModel,
+    parseOBJModel,
+    ModelData,
+};
 
 },{"../Util/Util.js":36,"./Loader.js":14}],17:[function(require,module,exports){
-var RawModel = require('../Model/RawModel.js');
-var MathUtil = require('../Util/MathUtil.js');
-var TexturedModel = require('../Model/TexturedModel.js');
-var Terrain = require('../Terrain/Terrain.js');
+const MathUtil = require('../Util/MathUtil.js');
 
-var projectionMatrix;
-var shader;
+let projectionMatrix;
+let shader;
 
 function initialize(_shader, _projectionMatrix) {
     shader = _shader;
@@ -899,7 +894,7 @@ function initialize(_shader, _projectionMatrix) {
 }
 
 function render(terrains) {
-    terrains.forEach(function(terrain) {
+    terrains.forEach((terrain) => {
         prepareTerrain(terrain);
         loadModelMatrix(terrain);
 
@@ -907,24 +902,24 @@ function render(terrains) {
             gl.TRIANGLES, terrain.rawModel.vertexCount, gl.UNSIGNED_INT, 0);
 
         unbindTexturedModel(terrain);
-    })
+    });
 }
 
 function prepareTerrain(terrain) {
-    var model = terrain.rawModel;
+    const model = terrain.rawModel;
     gl.bindVertexArray(model.vaoID);
 
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
     gl.enableVertexAttribArray(2);
 
-    var texture = terrain.texture;
+    // const texture = terrain.texture;
     bindTextures(terrain);
     shader.loadShineVariables(1, 0);
 }
 
 function bindTextures(terrain) {
-    let texturePack = terrain.texturePack;
+    const texturePack = terrain.texturePack;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texturePack.backgroundTexture.textureID);
     gl.activeTexture(gl.TEXTURE1);
@@ -946,17 +941,17 @@ function unbindTexturedModel() {
 }
 
 function loadModelMatrix(terrain) {
-    var mvMatrix = MathUtil.createTransformationMatrix(
+    const mvMatrix = MathUtil.createTransformationMatrix(
         [terrain.x, 0, terrain.z], [0, 0, 0], [1, 1, 1]);
     shader.loadTransMatrix(mvMatrix);
 }
 
-var self = module.exports = {
-    initialize: initialize,
-    render: render,
+module.exports = {
+    initialize,
+    render,
 };
 
-},{"../Model/RawModel.js":10,"../Model/TexturedModel.js":11,"../Terrain/Terrain.js":30,"../Util/MathUtil.js":35}],18:[function(require,module,exports){
+},{"../Util/MathUtil.js":35}],18:[function(require,module,exports){
 module.exports = function parse(params){
       var template = "#version 300 es \n" +" \n" +
 " \n" +" \n" +
@@ -1203,290 +1198,292 @@ module.exports = function parse(params){
     };
 
 },{}],22:[function(require,module,exports){
-function ShaderProgram(vertexShaderCode, fragmentShaderCode) {
-    this.vertexShaderID = this.loadShader(vertexShaderCode, gl.VERTEX_SHADER);
-    this.fragmentShaderID = this.loadShader(fragmentShaderCode, gl.FRAGMENT_SHADER);
+class ShaderProgram {
+    constructor(vertexShaderCode, fragmentShaderCode) {
+        this.vertexShaderID = this.loadShader(vertexShaderCode, gl.VERTEX_SHADER);
+        this.fragmentShaderID = this.loadShader(fragmentShaderCode, gl.FRAGMENT_SHADER);
 
-    this.programID = gl.createProgram();
-    gl.attachShader(this.programID, this.vertexShaderID);
-    gl.attachShader(this.programID, this.fragmentShaderID);
+        this.programID = gl.createProgram();
+        gl.attachShader(this.programID, this.vertexShaderID);
+        gl.attachShader(this.programID, this.fragmentShaderID);
 
-    this.bindAttributes();
+        this.bindAttributes();
 
-    gl.linkProgram(this.programID);
-    gl.validateProgram(this.programID);
+        gl.linkProgram(this.programID);
+        gl.validateProgram(this.programID);
 
-    if (!gl.getProgramParameter(this.programID, gl.LINK_STATUS)) {
-      alert("Could not initialise shaders");
+        if (!gl.getProgramParameter(this.programID, gl.LINK_STATUS)) {
+          alert('Could not initialise shaders');
+        }
+
+        this.getAllUniformLocations();
     }
 
-    this.getAllUniformLocations();
-}
+    loadShader(code, type) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, code());
+        gl.compileShader(shader);
 
-ShaderProgram.prototype.loadShader = function (code, type) {
-    var shader = gl.createShader(type);
-    gl.shaderSource(shader, code());
-    gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert(gl.getShaderInfoLog(shader));
+            return null;
+        }
 
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        alert(gl.getShaderInfoLog(shader));
-        return null;
+        return shader;
     }
 
-    return shader;
-};
+    start() {
+        gl.useProgram(this.programID);
+    }
 
-ShaderProgram.prototype.start = function () {
-    gl.useProgram(this.programID);
-};
+    stop() {
+        gl.useProgram(null);
+    }
 
-ShaderProgram.prototype.stop = function () {
-    gl.useProgram(null);
-};
+    cleanUp() {
+        this.stop();
+        gl.detachShader(this.programID, this.vertexShaderID);
+        gl.detachShader(this.programID, this.fragmentShaderID);
+        gl.deleteShader(this.vertexShaderID);
+        gl.deleteShader(this.fragmentShaderID);
+        gl.deleteProgram(this.programID);
+    }
 
-ShaderProgram.prototype.cleanUp = function () {
-    this.stop();
-    gl.detachShader(this.programID, this.vertexShaderID);
-    gl.detachShader(this.programID, this.fragmentShaderID);
-    gl.deleteShader(this.vertexShaderID);
-    gl.deleteShader(this.fragmentShaderID);
-    gl.deleteProgram(this.programID);
-};
+    // Implement this for children!
+    bindAttributes() {
 
-// Implement this for children!
-ShaderProgram.prototype.bindAttributes = function () {
+    }
 
-};
+    bindAttribute(attribute, variableName) {
+        gl.bindAttribLocation(this.programID, attribute, variableName);
+        // shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "position");
+    }
 
-ShaderProgram.prototype.bindAttribute = function (attribute, variableName) {
-    gl.bindAttribLocation(this.programID, attribute, variableName);
-    //shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "position");
-};
+    // Implement this for children!
+    getAllUniformLocations() {
 
-// Implement this for children!
-ShaderProgram.prototype.getAllUniformLocations = function() {
+    }
 
-};
+    getUniformLocation(uniformName) {
+            return gl.getUniformLocation(this.programID, uniformName);
+    }
 
-ShaderProgram.prototype.getUniformLocation = function(uniformName) {
-        return gl.getUniformLocation(this.programID, uniformName);
-};
+    loadFloat(location, value) {
+        gl.uniform1f(location, value);
+    }
 
-ShaderProgram.prototype.loadFloat = function(location, value) {
-    gl.uniform1f(location, value);
+    loadVector(location, vector) {
+        gl.uniform3fv(location, vector);
+    }
+
+    load2DVector(location, vector) {
+        gl.uniform2fv(location, vector);
+    }
+
+    loadInt(location, value) {
+        gl.uniform1i(location, value);
+    }
+
+    loadBool(location, bval) {
+        const val = bval ? 1 : 0;
+        gl.uniform1f(location, val);
+    }
+
+    loadMatrix(location, matrix) {
+        gl.uniformMatrix4fv(location, false, matrix);
+    }
 }
 
-ShaderProgram.prototype.loadVector = function(location, vector) {
-    gl.uniform3fv(location, vector);
-}
-
-ShaderProgram.prototype.load2DVector = function(location, vector) {
-    gl.uniform2fv(location, vector);
-}
-
-ShaderProgram.prototype.loadInt = function(location, value) {
-    gl.uniform1i(location, value);
-}
-
-ShaderProgram.prototype.loadBool = function(location, bval) {
-    var val = bval ? 1 : 0;
-    gl.uniform1f(location, val);
-}
-
-ShaderProgram.prototype.loadMatrix = function(location, matrix) {
-    gl.uniformMatrix4fv(location, false, matrix);
-}
-
-var self = module.exports = {
-    ShaderProgram: ShaderProgram,
+module.exports = {
+    ShaderProgram,
 };
 
 },{}],23:[function(require,module,exports){
-var ShaderProgram = require('./ShaderProgram.js');
-var MathUtil = require('../Util/MathUtil.js');
-var Const = require('../Util/Const.js');
+const ShaderProgram = require('./ShaderProgram.js');
+const MathUtil = require('../Util/MathUtil.js');
+const Const = require('../Util/Const.js');
 
 const VERTEX_SHADER = require('./GLSL/VertexShader.c');
 const FRAGMENT_SHADER = require('./GLSL/FragmentShader.c');
 
-function StaticShader() {
-    ShaderProgram.ShaderProgram.call(this, VERTEX_SHADER, FRAGMENT_SHADER);
-}
-StaticShader.prototype = Object.create(ShaderProgram.ShaderProgram.prototype);
-StaticShader.prototype.constructor = StaticShader;
-
-StaticShader.prototype.bindAttributes = function() {
-    this.bindAttribute(0, "position");
-    this.bindAttribute(1, "texCoord");
-    this.bindAttribute(2, "normal");
-}
-
-StaticShader.prototype.getAllUniformLocations = function() {
-    this.transformationMatrixLocation = this.getUniformLocation("transformationMatrix");
-    this.projectionMatrixLocation = this.getUniformLocation("projectionMatrix");
-    this.viewMatrixLocation = this.getUniformLocation("viewMatrix");
-    this.shineDamperLocation = this.getUniformLocation("shineDamper");
-    this.reflectivityLocation = this.getUniformLocation("reflectivity");
-    this.useFakeNormalLocation = this.getUniformLocation("useFakeNormal");
-    this.skyColorLocation = this.getUniformLocation("skyColor");
-    this.numberOfRowsLocation = this.getUniformLocation("numberOfRows");
-    this.offsetLocation = this.getUniformLocation("offset");
-
-    this.lightPositionLocations = [];
-    this.lightColorLocations = [];
-    this.attenuationLocations = [];
-    for (let i = 0; i < Const.MAX_LIGHTS; i++) {
-         this.lightPositionLocations.push(this.getUniformLocation("lightPosition[" + i + "]"));
-         this.lightColorLocations.push(this.getUniformLocation("lightColor[" + i + "]"));
-         this.attenuationLocations.push(this.getUniformLocation("attenuation[" + i + "]"));
+class StaticShader extends ShaderProgram.ShaderProgram {
+    constructor() {
+        super(VERTEX_SHADER, FRAGMENT_SHADER);
     }
-};
 
-StaticShader.prototype.loadTransMatrix = function(matrix) {
-    this.loadMatrix(this.transformationMatrixLocation, matrix);
-};
+    bindAttributes() {
+        this.bindAttribute(0, 'position');
+        this.bindAttribute(1, 'texCoord');
+        this.bindAttribute(2, 'normal');
+    }
 
-StaticShader.prototype.loadProjectionMatrix = function(matrix) {
-    this.loadMatrix(this.projectionMatrixLocation, matrix);
-};
+    getAllUniformLocations() {
+        this.transformationMatrixLocation = this.getUniformLocation('transformationMatrix');
+        this.projectionMatrixLocation = this.getUniformLocation('projectionMatrix');
+        this.viewMatrixLocation = this.getUniformLocation('viewMatrix');
+        this.shineDamperLocation = this.getUniformLocation('shineDamper');
+        this.reflectivityLocation = this.getUniformLocation('reflectivity');
+        this.useFakeNormalLocation = this.getUniformLocation('useFakeNormal');
+        this.skyColorLocation = this.getUniformLocation('skyColor');
+        this.numberOfRowsLocation = this.getUniformLocation('numberOfRows');
+        this.offsetLocation = this.getUniformLocation('offset');
 
-StaticShader.prototype.loadViewMatrix = function(camera) {
-    let matrix = MathUtil.createViewMatrix(
-        camera.position, [camera.pitch, camera.yaw, camera.roll])
-    this.loadMatrix(this.viewMatrixLocation, matrix);
-};
-
-StaticShader.prototype.loadLights = function(lights) {
-    for (let i = 0; i < Const.MAX_LIGHTS; i++) {
-        if (i < lights.length) {
-            this.loadVector(this.lightPositionLocations[i], lights[i].position);
-            this.loadVector(this.lightColorLocations[i], lights[i].color);
-            this.loadVector(this.attenuationLocations[i], lights[i].attenuation);
-        } else {
-            this.loadVector(this.lightPositionLocations[i], [0, 0, 0]);
-            this.loadVector(this.lightColorLocations[i], [0, 0, 0]);
-            this.loadVector(this.attenuationLocations[i], [1, 0, 0]);
+        this.lightPositionLocations = [];
+        this.lightColorLocations = [];
+        this.attenuationLocations = [];
+        for (let i = 0; i < Const.MAX_LIGHTS; i++) {
+             this.lightPositionLocations.push(this.getUniformLocation(`lightPosition[${i}]`));
+             this.lightColorLocations.push(this.getUniformLocation(`lightColor[${i}]`));
+             this.attenuationLocations.push(this.getUniformLocation(`attenuation[${i}]`));
         }
     }
-};
 
-StaticShader.prototype.loadShineVariables = function(shineDamper, reflectivity) {
-    this.loadFloat(this.shineDamperLocation, shineDamper);
-    this.loadFloat(this.reflectivityLocation, reflectivity);
-};
+    loadTransMatrix(matrix) {
+        this.loadMatrix(this.transformationMatrixLocation, matrix);
+    }
 
-StaticShader.prototype.loadUseFakeNormal = function(useFakeNormal) {
-    this.loadBool(this.useFakeNormalLocation, useFakeNormal);
-};
+    loadProjectionMatrix(matrix) {
+        this.loadMatrix(this.projectionMatrixLocation, matrix);
+    }
 
-StaticShader.prototype.loadSkyColor = function(skyColor) {
-    this.loadVector(this.skyColorLocation, skyColor);
-};
+    loadViewMatrix(camera) {
+        const matrix = MathUtil.createViewMatrix(
+            camera.position, [camera.pitch, camera.yaw, camera.roll]);
+        this.loadMatrix(this.viewMatrixLocation, matrix);
+    }
 
-StaticShader.prototype.loadNumberOfRows = function(numberOfRows) {
-    this.loadFloat(this.numberOfRowsLocation, numberOfRows);
-};
+    loadLights(lights) {
+        for (let i = 0; i < Const.MAX_LIGHTS; i++) {
+            if (i < lights.length) {
+                this.loadVector(this.lightPositionLocations[i], lights[i].position);
+                this.loadVector(this.lightColorLocations[i], lights[i].color);
+                this.loadVector(this.attenuationLocations[i], lights[i].attenuation);
+            } else {
+                this.loadVector(this.lightPositionLocations[i], [0, 0, 0]);
+                this.loadVector(this.lightColorLocations[i], [0, 0, 0]);
+                this.loadVector(this.attenuationLocations[i], [1, 0, 0]);
+            }
+        }
+    }
 
-StaticShader.prototype.loadOffset = function(offset) {
-    this.load2DVector(this.offsetLocation, offset);
-};
+    loadShineVariables(shineDamper, reflectivity) {
+        this.loadFloat(this.shineDamperLocation, shineDamper);
+        this.loadFloat(this.reflectivityLocation, reflectivity);
+    }
 
-var self = module.exports = {
-    StaticShader: StaticShader,
+    loadUseFakeNormal(useFakeNormal) {
+        this.loadBool(this.useFakeNormalLocation, useFakeNormal);
+    }
+
+    loadSkyColor(skyColor) {
+        this.loadVector(this.skyColorLocation, skyColor);
+    }
+
+    loadNumberOfRows(numberOfRows) {
+        this.loadFloat(this.numberOfRowsLocation, numberOfRows);
+    }
+
+    loadOffset(offset) {
+        this.load2DVector(this.offsetLocation, offset);
+    }
 }
 
+module.exports = {
+    StaticShader,
+};
+
 },{"../Util/Const.js":34,"../Util/MathUtil.js":35,"./GLSL/FragmentShader.c":18,"./GLSL/VertexShader.c":21,"./ShaderProgram.js":22}],24:[function(require,module,exports){
-var ShaderProgram = require('./ShaderProgram.js');
-var MathUtil = require('../Util/MathUtil.js');
-var Const = require('../Util/Const.js');
+const ShaderProgram = require('./ShaderProgram.js');
+const MathUtil = require('../Util/MathUtil.js');
+const Const = require('../Util/Const.js');
 
 const VERTEX_SHADER = require('./GLSL/TerrainVertexShader.c');
 const FRAGMENT_SHADER = require('./GLSL/TerrainFragmentShader.c');
 
-function TerrainShader() {
-    ShaderProgram.ShaderProgram.call(this, VERTEX_SHADER, FRAGMENT_SHADER);
-}
-TerrainShader.prototype = Object.create(ShaderProgram.ShaderProgram.prototype);
-TerrainShader.prototype.constructor = TerrainShader;
-
-TerrainShader.prototype.bindAttributes = function() {
-    this.bindAttribute(0, "position");
-    this.bindAttribute(1, "texCoord");
-    this.bindAttribute(2, "normal");
-}
-
-TerrainShader.prototype.getAllUniformLocations = function() {
-    this.transformationMatrixLocation = this.getUniformLocation("transformationMatrix");
-    this.projectionMatrixLocation = this.getUniformLocation("projectionMatrix");
-    this.viewMatrixLocation = this.getUniformLocation("viewMatrix");
-    this.shineDamperLocation = this.getUniformLocation("shineDamper");
-    this.reflectivityLocation = this.getUniformLocation("reflectivity");
-    this.skyColorLocation = this.getUniformLocation("skyColor");
-
-    this.backgroundTextureLocation = this.getUniformLocation("backgroundTexture");
-    this.rTextureLocation = this.getUniformLocation("rTexture");
-    this.gTextureLocation = this.getUniformLocation("gTexture");
-    this.bTextureLocation = this.getUniformLocation("bTexture");
-    this.blendMapLocation = this.getUniformLocation("blendMap");
-
-    this.lightPositionLocations = [];
-    this.lightColorLocations = [];
-    this.attenuationLocations = [];
-    for (let i = 0; i < Const.MAX_LIGHTS; i++) {
-         this.lightPositionLocations.push(this.getUniformLocation("lightPosition[" + i + "]"));
-         this.lightColorLocations.push(this.getUniformLocation("lightColor[" + i + "]"));
-         this.attenuationLocations.push(this.getUniformLocation("attenuation[" + i + "]"));
+class TerrainShader extends ShaderProgram.ShaderProgram {
+    constructor() {
+        super(VERTEX_SHADER, FRAGMENT_SHADER);
     }
-};
 
-TerrainShader.prototype.loadTransMatrix = function(matrix) {
-    this.loadMatrix(this.transformationMatrixLocation, matrix);
-};
+    bindAttributes() {
+        this.bindAttribute(0, 'position');
+        this.bindAttribute(1, 'texCoord');
+        this.bindAttribute(2, 'normal');
+    }
 
-TerrainShader.prototype.loadProjectionMatrix = function(matrix) {
-    this.loadMatrix(this.projectionMatrixLocation, matrix);
-};
+    getAllUniformLocations() {
+        this.transformationMatrixLocation = this.getUniformLocation('transformationMatrix');
+        this.projectionMatrixLocation = this.getUniformLocation('projectionMatrix');
+        this.viewMatrixLocation = this.getUniformLocation('viewMatrix');
+        this.shineDamperLocation = this.getUniformLocation('shineDamper');
+        this.reflectivityLocation = this.getUniformLocation('reflectivity');
+        this.skyColorLocation = this.getUniformLocation('skyColor');
 
-TerrainShader.prototype.loadViewMatrix = function(camera) {
-    let matrix = MathUtil.createViewMatrix(
-        camera.position, [camera.pitch, camera.yaw, camera.roll])
-    this.loadMatrix(this.viewMatrixLocation, matrix);
-};
+        this.backgroundTextureLocation = this.getUniformLocation('backgroundTexture');
+        this.rTextureLocation = this.getUniformLocation('rTexture');
+        this.gTextureLocation = this.getUniformLocation('gTexture');
+        this.bTextureLocation = this.getUniformLocation('bTexture');
+        this.blendMapLocation = this.getUniformLocation('blendMap');
 
-TerrainShader.prototype.loadLights = function(lights) {
-    for (let i = 0; i < Const.MAX_LIGHTS; i++) {
-        if (i < lights.length) {
-            this.loadVector(this.lightPositionLocations[i], lights[i].position);
-            this.loadVector(this.lightColorLocations[i], lights[i].color);
-            this.loadVector(this.attenuationLocations[i], lights[i].attenuation);
-        } else {
-            this.loadVector(this.lightPositionLocations[i], [0, 0, 0]);
-            this.loadVector(this.lightColorLocations[i], [0, 0, 0]);
-            this.loadVector(this.attenuationLocations[i], [1, 0, 0]);
+        this.lightPositionLocations = [];
+        this.lightColorLocations = [];
+        this.attenuationLocations = [];
+        for (let i = 0; i < Const.MAX_LIGHTS; i++) {
+            this.lightPositionLocations.push(this.getUniformLocation(`lightPosition[${i}]`));
+            this.lightColorLocations.push(this.getUniformLocation(`lightColor[${i}]`));
+            this.attenuationLocations.push(this.getUniformLocation(`attenuation[${i}]`));
         }
     }
-};
 
-TerrainShader.prototype.loadShineVariables = function(shineDamper, reflectivity) {
-    this.loadFloat(this.shineDamperLocation, shineDamper);
-    this.loadFloat(this.reflectivityLocation, reflectivity);
-};
+    loadTransMatrix(matrix) {
+        this.loadMatrix(this.transformationMatrixLocation, matrix);
+    }
 
-TerrainShader.prototype.loadSkyColor = function(skyColor) {
-    this.loadVector(this.skyColorLocation, skyColor);
-};
+    loadProjectionMatrix(matrix) {
+        this.loadMatrix(this.projectionMatrixLocation, matrix);
+    }
 
-TerrainShader.prototype.connectTextureUnits = function() {
-    this.loadInt(this.backgroundTextureLocation, 0);
-    this.loadInt(this.rTextureLocation, 1);
-    this.loadInt(this.gTextureLocation, 2);
-    this.loadInt(this.bTextureLocation, 3);
-    this.loadInt(this.blendMapLocation, 4);
+    loadViewMatrix(camera) {
+        const matrix = MathUtil.createViewMatrix(
+            camera.position, [camera.pitch, camera.yaw, camera.roll]);
+        this.loadMatrix(this.viewMatrixLocation, matrix);
+    }
+
+    loadLights(lights) {
+        for (let i = 0; i < Const.MAX_LIGHTS; i++) {
+            if (i < lights.length) {
+                this.loadVector(this.lightPositionLocations[i], lights[i].position);
+                this.loadVector(this.lightColorLocations[i], lights[i].color);
+                this.loadVector(this.attenuationLocations[i], lights[i].attenuation);
+            } else {
+                this.loadVector(this.lightPositionLocations[i], [0, 0, 0]);
+                this.loadVector(this.lightColorLocations[i], [0, 0, 0]);
+                this.loadVector(this.attenuationLocations[i], [1, 0, 0]);
+            }
+        }
+    }
+
+    loadShineVariables(shineDamper, reflectivity) {
+        this.loadFloat(this.shineDamperLocation, shineDamper);
+        this.loadFloat(this.reflectivityLocation, reflectivity);
+    }
+
+    loadSkyColor(skyColor) {
+        this.loadVector(this.skyColorLocation, skyColor);
+    }
+
+    connectTextureUnits() {
+        this.loadInt(this.backgroundTextureLocation, 0);
+        this.loadInt(this.rTextureLocation, 1);
+        this.loadInt(this.gTextureLocation, 2);
+        this.loadInt(this.bTextureLocation, 3);
+        this.loadInt(this.blendMapLocation, 4);
+    }
 }
 
-var self = module.exports = {
-    TerrainShader: TerrainShader,
-}
+module.exports = {
+    TerrainShader,
+};
 
 },{"../Util/Const.js":34,"../Util/MathUtil.js":35,"./GLSL/TerrainFragmentShader.c":19,"./GLSL/TerrainVertexShader.c":20,"./ShaderProgram.js":22}],25:[function(require,module,exports){
 module.exports = function parse(params){
@@ -1498,11 +1495,26 @@ module.exports = function parse(params){
 "out vec4 outColor; \n" +" \n" +
 " \n" +" \n" +
 "uniform samplerCube cubeMap; \n" +" \n" +
+"uniform samplerCube cubeMap2; \n" +" \n" +
+" \n" +" \n" +
+"uniform float blendFactor; \n" +" \n" +
+" \n" +" \n" +
+"uniform vec3 fogColor; \n" +" \n" +
+" \n" +" \n" +
+"const float upperLimit = 30.0; \n" +" \n" +
+"const float lowerLimit = 0.0; \n" +" \n" +
 " \n" +" \n" +
 "void main(void){ \n" +" \n" +
 "    vec3 newTextureCoords = textureCoords; \n" +" \n" +
 "    newTextureCoords.y = newTextureCoords.y * -1.0; \n" +" \n" +
-"    outColor = texture(cubeMap, newTextureCoords); \n" +" \n" +
+" \n" +" \n" +
+"    float fogFactor = (textureCoords.y - lowerLimit) / (upperLimit - lowerLimit); \n" +" \n" +
+"    fogFactor = clamp(fogFactor, 0.0, 1.0); \n" +" \n" +
+" \n" +" \n" +
+"    vec4 textureColor1 = texture(cubeMap, newTextureCoords); \n" +" \n" +
+"    vec4 textureColor2 = texture(cubeMap2, newTextureCoords); \n" +" \n" +
+"    vec4 finalColor = mix(textureColor1, textureColor2, blendFactor); \n" +" \n" +
+"    outColor = mix(vec4(fogColor, 1.0), finalColor, fogFactor); \n" +" \n" +
 "} \n" +" \n" +
 " \n" 
       params = params || {}
@@ -1537,95 +1549,109 @@ module.exports = function parse(params){
     };
 
 },{}],27:[function(require,module,exports){
-var Loader = require('../RenderEngine/Loader.js');
-var SkyboxShader = require('./SkyboxShader.js');
-var MathUtil = require('../Util/MathUtil.js');
-var RawModel = require('../Model/RawModel.js');
-var Util = require('../Util/Util.js');
+const Loader = require('../RenderEngine/Loader.js');
+const SkyboxShader = require('./SkyboxShader.js');
 
 const SIZE = 500.0;
 const VERTICES = [
-    -SIZE,  SIZE, -SIZE,
+    -SIZE, SIZE, -SIZE,
     -SIZE, -SIZE, -SIZE,
-     SIZE, -SIZE, -SIZE,
-     SIZE, -SIZE, -SIZE,
-     SIZE,  SIZE, -SIZE,
-    -SIZE,  SIZE, -SIZE,
+    SIZE, -SIZE, -SIZE,
+    SIZE, -SIZE, -SIZE,
+    SIZE, SIZE, -SIZE,
+    -SIZE, SIZE, -SIZE,
 
-    -SIZE, -SIZE,  SIZE,
+    -SIZE, -SIZE, SIZE,
     -SIZE, -SIZE, -SIZE,
-    -SIZE,  SIZE, -SIZE,
-    -SIZE,  SIZE, -SIZE,
-    -SIZE,  SIZE,  SIZE,
-    -SIZE, -SIZE,  SIZE,
+    -SIZE, SIZE, -SIZE,
+    -SIZE, SIZE, -SIZE,
+    -SIZE, SIZE, SIZE,
+    -SIZE, -SIZE, SIZE,
 
-     SIZE, -SIZE, -SIZE,
-     SIZE, -SIZE,  SIZE,
-     SIZE,  SIZE,  SIZE,
-     SIZE,  SIZE,  SIZE,
-     SIZE,  SIZE, -SIZE,
-     SIZE, -SIZE, -SIZE,
+    SIZE, -SIZE, -SIZE,
+    SIZE, -SIZE, SIZE,
+    SIZE, SIZE, SIZE,
+    SIZE, SIZE, SIZE,
+    SIZE, SIZE, -SIZE,
+    SIZE, -SIZE, -SIZE,
 
-    -SIZE, -SIZE,  SIZE,
-    -SIZE,  SIZE,  SIZE,
-     SIZE,  SIZE,  SIZE,
-     SIZE,  SIZE,  SIZE,
-     SIZE, -SIZE,  SIZE,
-    -SIZE, -SIZE,  SIZE,
+    -SIZE, -SIZE, SIZE,
+    -SIZE, SIZE, SIZE,
+    SIZE, SIZE, SIZE,
+    SIZE, SIZE, SIZE,
+    SIZE, -SIZE, SIZE,
+    -SIZE, -SIZE, SIZE,
 
-    -SIZE,  SIZE, -SIZE,
-     SIZE,  SIZE, -SIZE,
-     SIZE,  SIZE,  SIZE,
-     SIZE,  SIZE,  SIZE,
-    -SIZE,  SIZE,  SIZE,
-    -SIZE,  SIZE, -SIZE,
+    -SIZE, SIZE, -SIZE,
+    SIZE, SIZE, -SIZE,
+    SIZE, SIZE, SIZE,
+    SIZE, SIZE, SIZE,
+    -SIZE, SIZE, SIZE,
+    -SIZE, SIZE, -SIZE,
 
     -SIZE, -SIZE, -SIZE,
-    -SIZE, -SIZE,  SIZE,
-     SIZE, -SIZE, -SIZE,
-     SIZE, -SIZE, -SIZE,
-    -SIZE, -SIZE,  SIZE,
-     SIZE, -SIZE,  SIZE
+    -SIZE, -SIZE, SIZE,
+    SIZE, -SIZE, -SIZE,
+    SIZE, -SIZE, -SIZE,
+    -SIZE, -SIZE, SIZE,
+    SIZE, -SIZE, SIZE,
 ];
 
 const TEXTURE_FILES = [
-    'res/cubeMap/right.png',
-    'res/cubeMap/left.png',
-    'res/cubeMap/bottom.png',
-    'res/cubeMap/top.png',
-    'res/cubeMap/back.png',
-    'res/cubeMap/front.png',
+    'res/cubeMap/day/right.png',
+    'res/cubeMap/day/left.png',
+    'res/cubeMap/day/bottom.png',
+    'res/cubeMap/day/top.png',
+    'res/cubeMap/day/back.png',
+    'res/cubeMap/day/front.png',
 ];
 
-let cube = undefined;
-let texture = undefined;
-let shader = undefined;
+const NIGHT_TEXTURE_FILES = [
+    'res/cubeMap/night/nightRight.png',
+    'res/cubeMap/night/nightLeft.png',
+    'res/cubeMap/night/nightBottom.png',
+    'res/cubeMap/night/nightTop.png',
+    'res/cubeMap/night/nightBack.png',
+    'res/cubeMap/night/nightFront.png',
+];
+
+let cube;
+let texture;
+let nightTexture;
+let shader;
 
 function initialize(projectionMatrix) {
     cube = Loader.loadPositionsToVAO(VERTICES, 3);
     Loader.loadCubeMap(TEXTURE_FILES, (t) => {
         texture = t;
-    })
+    });
+
+    Loader.loadCubeMap(NIGHT_TEXTURE_FILES, (t) => {
+        nightTexture = t;
+    });
+
     shader = new SkyboxShader.SkyboxShader();
+
     shader.start();
+    shader.connectTextureUnits();
     shader.loadProjectionMatrix(projectionMatrix);
     shader.stop();
 }
 
-function render(camera) {
-    if (texture === undefined) {
+function render(camera, fogColor) {
+    if (texture === undefined || nightTexture === undefined) {
         return;
     }
 
     shader.start();
 
     shader.loadViewMatrix(camera);
+    shader.loadFogColor(fogColor);
 
     gl.bindVertexArray(cube.vaoID);
     gl.enableVertexAttribArray(0);
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture); // texture is texture_id
+    bindTextures();
 
     gl.drawArrays(gl.TRIANGLES, 0, cube.vertexCount);
 
@@ -1639,253 +1665,293 @@ function cleanUp() {
     shader.cleanUp();
 }
 
+function bindTextures() {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture); // texture is texture_id
 
-var self = module.exports = {
-    initialize: initialize,
-    render, render,
-    cleanUp: cleanUp,
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, nightTexture); // texture is texture_id
+
+    shader.loadBlendFactor(0.5);
 }
 
-},{"../Model/RawModel.js":10,"../RenderEngine/Loader.js":14,"../Util/MathUtil.js":35,"../Util/Util.js":36,"./SkyboxShader.js":28}],28:[function(require,module,exports){
-var ShaderProgram = require('../Shader/ShaderProgram.js');
-var MathUtil = require('../Util/MathUtil.js');
+module.exports = {
+    initialize,
+    render,
+    cleanUp,
+};
+
+},{"../RenderEngine/Loader.js":14,"./SkyboxShader.js":28}],28:[function(require,module,exports){
+const ShaderProgram = require('../Shader/ShaderProgram.js');
+const MathUtil = require('../Util/MathUtil.js');
+const Display = require('../RenderEngine/Display.js');
 
 const VERTEX_SHADER = require('./GLSL/SkyboxVertexShader.c');
 const FRAGMENT_SHADER = require('./GLSL/SkyboxFragmentShader.c');
 
-function SkyboxShader() {
-    ShaderProgram.ShaderProgram.call(this, VERTEX_SHADER, FRAGMENT_SHADER);
+const ROTATION_SPEED = Math.PI / 180;
+
+class SkyboxShader extends ShaderProgram.ShaderProgram {
+    constructor() {
+        super(VERTEX_SHADER, FRAGMENT_SHADER);
+
+        this.rotation = 0;
+    }
+
+    bindAttributes() {
+        this.bindAttribute(0, 'position');
+    }
+
+    getAllUniformLocations() {
+        this.projectionMatrixLocation = this.getUniformLocation('projectionMatrix');
+        this.viewMatrixLocation = this.getUniformLocation('viewMatrix');
+        this.fogColorLocation = this.getUniformLocation('fogColor');
+        this.blendFactorLocation = this.getUniformLocation('blendFactor');
+        this.cubeMapLocation = this.getUniformLocation('cubeMap');
+        this.cubeMap2Location = this.getUniformLocation('cubeMap2');
+    }
+
+    loadProjectionMatrix(matrix) {
+        this.loadMatrix(this.projectionMatrixLocation, matrix);
+    }
+
+    loadViewMatrix(camera) {
+        const matrix = MathUtil.createViewMatrix(
+            [0, 0, 0], [camera.pitch, camera.yaw, camera.roll]);
+        this.rotation += Display.delta * ROTATION_SPEED;
+        mat4.rotateY(matrix, matrix, this.rotation);
+        this.loadMatrix(this.viewMatrixLocation, matrix);
+    }
+
+    loadFogColor(color) {
+        this.loadVector(this.fogColorLocation, color);
+    }
+
+    loadBlendFactor(blendFactor) {
+        this.loadFloat(this.blendFactorLocation, blendFactor);
+    }
+
+    connectTextureUnits() {
+        this.loadInt(this.cubeMapLocation, 0);
+        this.loadInt(this.cubeMap2Location, 1);
+    }
 }
 
-SkyboxShader.prototype = Object.create(ShaderProgram.ShaderProgram.prototype);
-SkyboxShader.prototype.constructor = SkyboxShader;
+module.exports = {
+    SkyboxShader,
+};
 
-SkyboxShader.prototype.bindAttributes = function() {
-    this.bindAttribute(0, "position");
-}
-
-SkyboxShader.prototype.getAllUniformLocations = function() {
-    this.projectionMatrixLocation = this.getUniformLocation("projectionMatrix");
-    this.viewMatrixLocation = this.getUniformLocation("viewMatrix");
-}
-
-SkyboxShader.prototype.loadProjectionMatrix = function(matrix) {
-    this.loadMatrix(this.projectionMatrixLocation, matrix);
-}
-
-SkyboxShader.prototype.loadViewMatrix = function(camera) {
-    let matrix = MathUtil.createViewMatrix(
-        [0, 0, 0], [camera.pitch, camera.yaw, camera.roll]);
-    this.loadMatrix(this.viewMatrixLocation, matrix);
-}
-
-var self = module.exports = {
-    SkyboxShader: SkyboxShader,
-}
-
-},{"../Shader/ShaderProgram.js":22,"../Util/MathUtil.js":35,"./GLSL/SkyboxFragmentShader.c":25,"./GLSL/SkyboxVertexShader.c":26}],29:[function(require,module,exports){
+},{"../RenderEngine/Display.js":12,"../Shader/ShaderProgram.js":22,"../Util/MathUtil.js":35,"./GLSL/SkyboxFragmentShader.c":25,"./GLSL/SkyboxVertexShader.c":26}],29:[function(require,module,exports){
 const MAX_PIXEL_COLOR = 256 * 256 * 256;
 const MAX_HEIGHT = 40;
 
+class HeightMap {
+    constructor(image) {
+        this.image = image;
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = this.image.width;
+        this.canvas.height = this.image.height;
 
-function HeightMap(image) {
-    this.image = image;
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = this.image.width;
-    this.canvas.height = this.image.height;
+        this.context = this.canvas.getContext('2d');
+        this.context.drawImage(this.image, 0, 0, this.image.width, this.image.height);
 
-    this.context = this.canvas.getContext('2d');
-    this.context.drawImage(this.image, 0, 0, this.image.width, this.image.height);
-
-    this.height = this.image.height;
-}
-
-HeightMap.prototype.getPixel = function(x, y) {
-    return this.canvas.getContext('2d').getImageData(x, y, 1, 1).data;
-}
-
-HeightMap.prototype.getHeight = function(x, y) {
-    if (x < 0 || x > this.image.width || y < 0 || y > this.image.height) {
-        return 0;
+        this.height = this.image.height;
     }
 
-    let pixel = this.getPixel(x, y);
-    let height = (pixel[0] << 16) + (pixel[1] << 8) + pixel[2];
-    height -= (MAX_PIXEL_COLOR / 2);
-    height /= (MAX_PIXEL_COLOR / 2);
-    height *= MAX_HEIGHT;
+    getPixel(x, y) {
+        return this.canvas.getContext('2d').getImageData(x, y, 1, 1).data;
+    }
 
-    return height;
+    getHeight(x, y) {
+        if (x < 0 || x > this.image.width || y < 0 || y > this.image.height) {
+            return 0;
+        }
+
+        const pixel = this.getPixel(x, y);
+        let height = (pixel[0] << 16) + (pixel[1] << 8) + pixel[2];
+        height -= (MAX_PIXEL_COLOR / 2);
+        height /= (MAX_PIXEL_COLOR / 2);
+        height *= MAX_HEIGHT;
+
+        return height;
+    }
+
+    getNormal(x, y) {
+        const heightL = this.getHeight(x - 1, y);
+        const heightR = this.getHeight(x + 1, y);
+        const heightD = this.getHeight(x, y - 1);
+        const heightU = this.getHeight(x, y + 1);
+        const normal = [heightL - heightR, 2.0, heightD - heightU];
+        vec3.normalize(normal, normal);
+
+        return normal;
+    }
 }
 
-HeightMap.prototype.getNormal = function(x, y) {
-    let heightL = this.getHeight(x - 1, y);
-    let heightR = this.getHeight(x + 1, y);
-    let heightD = this.getHeight(x, y - 1);
-    let heightU = this.getHeight(x, y + 1);
-    let normal = [heightL - heightR, 2.0, heightD - heightU];
-    vec3.normalize(normal, normal);
-
-    return normal;
-}
-
-var self = module.exports = {
-    HeightMap: HeightMap,
+module.exports = {
+    HeightMap,
 };
 
 },{}],30:[function(require,module,exports){
-var Loader = require('../RenderEngine/Loader.js');
-var MathUtil = require('../Util/MathUtil.js');
+const Loader = require('../RenderEngine/Loader.js');
+const MathUtil = require('../Util/MathUtil.js');
 
 const SIZE = 800;
-var vertexCount;
-var gridSquareSize;
+let vertexCount;
+let gridSquareSize;
 
-function Terrain(gridX, gridZ, texturePack, blendMap, heightMap) {
-    this.texturePack = texturePack;
-    this.blendMap = blendMap;
-    this.x = gridX * SIZE;
-    this.z = gridZ * SIZE;
-    this.heightMap = heightMap;
+class Terrain {
+    constructor(gridX, gridZ, texturePack, blendMap, heightMap) {
+        this.texturePack = texturePack;
+        this.blendMap = blendMap;
+        this.x = gridX * SIZE;
+        this.z = gridZ * SIZE;
+        this.heightMap = heightMap;
 
-    vertexCount = this.heightMap.height;
-    gridSquareSize = SIZE / (vertexCount - 1);
+        vertexCount = this.heightMap.height;
+        gridSquareSize = SIZE / (vertexCount - 1);
 
-    this.heights = new Array(vertexCount * vertexCount);
-    this.rawModel = this.generateTerrain();
-}
+        this.heights = new Array(vertexCount * vertexCount);
+        this.rawModel = this.generateTerrain();
+    }
 
-Terrain.prototype.generateTerrain = function() {
-    let count = vertexCount * vertexCount;
+    generateTerrain() {
+        let count = vertexCount * vertexCount;
 
-    let vertices = Array(count * 3);
-    let normals = Array(count * 3);
-    let textureCoords = Array(count * 2);
-    let indices = Array(6 * (vertexCount - 1) * (vertexCount - 1));
-    let vertexPointer = 0;
+        let vertices = Array(count * 3);
+        let normals = Array(count * 3);
+        let textureCoords = Array(count * 2);
+        let indices = Array(6 * (vertexCount - 1) * (vertexCount - 1));
+        let vertexPointer = 0;
 
-    for (let i = 0; i < vertexCount; i++) {
-        for (let j = 0; j < vertexCount; j++) {
-            let height = this.heightMap.getHeight(j, i);
-            this.heights[j * vertexCount + i] = height;
-            vertices[vertexPointer * 3] = (j / (vertexCount - 1)) * SIZE;
-            vertices[vertexPointer * 3 + 1] =  height;
-            vertices[vertexPointer * 3 + 2] = (i / (vertexCount - 1)) * SIZE;
+        for (let i = 0; i < vertexCount; i++) {
+            for (let j = 0; j < vertexCount; j++) {
+                let height = this.heightMap.getHeight(j, i);
+                this.heights[j * vertexCount + i] = height;
+                vertices[vertexPointer * 3] = (j / (vertexCount - 1)) * SIZE;
+                vertices[vertexPointer * 3 + 1] = height;
+                vertices[vertexPointer * 3 + 2] = (i / (vertexCount - 1)) * SIZE;
 
-            let normal = this.heightMap.getNormal(j, i);
-            normals[vertexPointer * 3] = normal[0];
-            normals[vertexPointer * 3 + 1] = normal[1];
-            normals[vertexPointer * 3 + 2] = normal[2];
+                let normal = this.heightMap.getNormal(j, i);
+                normals[vertexPointer * 3] = normal[0];
+                normals[vertexPointer * 3 + 1] = normal[1];
+                normals[vertexPointer * 3 + 2] = normal[2];
 
-            textureCoords[vertexPointer * 2] = j / (vertexCount - 1);
-            textureCoords[vertexPointer * 2 + 1] = i / (vertexCount - 1);
+                textureCoords[vertexPointer * 2] = j / (vertexCount - 1);
+                textureCoords[vertexPointer * 2 + 1] = i / (vertexCount - 1);
 
-            vertexPointer++;
+                vertexPointer++;
+            }
         }
-    }
 
-    let pointer = 0;
-    for (let gz = 0; gz < vertexCount - 1; gz++) {
-        for (let gx = 0; gx < vertexCount - 1; gx++) {
-            let topLeft = (gz * vertexCount) + gx;
-            let topRight = topLeft + 1;
-            let bottomLeft = ((gz + 1) * vertexCount) + gx;
-            let bottomRight = bottomLeft + 1;
+        let pointer = 0;
+        for (let gz = 0; gz < vertexCount - 1; gz++) {
+            for (let gx = 0; gx < vertexCount - 1; gx++) {
+                let topLeft = (gz * vertexCount) + gx;
+                let topRight = topLeft + 1;
+                let bottomLeft = ((gz + 1) * vertexCount) + gx;
+                let bottomRight = bottomLeft + 1;
 
-            indices[pointer++] = topLeft;
-            indices[pointer++] = bottomLeft;
-            indices[pointer++] = topRight;
+                indices[pointer++] = topLeft;
+                indices[pointer++] = bottomLeft;
+                indices[pointer++] = topRight;
 
-            indices[pointer++] = topRight;
-            indices[pointer++] = bottomLeft;
-            indices[pointer++] = bottomRight;
+                indices[pointer++] = topRight;
+                indices[pointer++] = bottomLeft;
+                indices[pointer++] = bottomRight;
+            }
         }
+
+        return Loader.loadToVAO(vertices, textureCoords, normals, indices);
     }
 
-    return Loader.loadToVAO(vertices, textureCoords, normals, indices);
+    getTerrainHeight(worldX, worldZ) {
+        let terrainX = worldX - this.x;
+        let terrainZ = worldZ - this.z;
+
+        let gridX = Math.floor(terrainX / gridSquareSize);
+        let gridZ = Math.floor(terrainZ / gridSquareSize);
+
+        if (gridX < 0 || gridX > vertexCount - 1 || gridZ < 0 || gridZ > vertexCount - 1) {
+            return 0;
+        }
+
+        let xCoord = (terrainX % gridSquareSize) / gridSquareSize;
+        let zCoord = (terrainZ % gridSquareSize) / gridSquareSize;
+
+        let terrainHeight = 0;
+        if (xCoord <= 1 - zCoord) {
+            terrainHeight = MathUtil.barryCentric(
+                [0, this.heights[gridX * vertexCount + gridZ], 0],
+                [1, this.heights[(gridX + 1) * vertexCount + gridZ], 0],
+                [0, this.heights[gridX * vertexCount + (gridZ + 1)], 1],
+                [xCoord, zCoord]);
+        } else {
+            terrainHeight = MathUtil.barryCentric(
+                [1, this.heights[(gridX + 1) * vertexCount + gridZ], 0],
+                [1, this.heights[(gridX + 1) * vertexCount + (gridZ + 1)], 1],
+                [0, this.heights[gridX * vertexCount + (gridZ + 1)], 1],
+                [xCoord, zCoord]);
+        }
+        return terrainHeight;
+    }
 }
 
-Terrain.prototype.getTerrainHeight = function(worldX, worldZ) {
-    let terrainX = worldX - this.x;
-    let terrainZ = worldZ - this.z;
-
-    let gridX = Math.floor(terrainX / gridSquareSize);
-    let gridZ = Math.floor(terrainZ / gridSquareSize);
-
-    if (gridX < 0 || gridX > vertexCount - 1 || gridZ < 0 || gridZ > vertexCount - 1) {
-        return 0;
-    }
-
-    let xCoord = (terrainX % gridSquareSize) / gridSquareSize;
-    let zCoord = (terrainZ % gridSquareSize) / gridSquareSize;
-
-    let terrainHeight = 0;
-    if (xCoord <= 1 - zCoord) {
-        terrainHeight = MathUtil.barryCentric(
-            [0, this.heights[gridX * vertexCount + gridZ], 0],
-            [1, this.heights[(gridX + 1) * vertexCount + gridZ], 0],
-            [0, this.heights[gridX * vertexCount + (gridZ + 1)], 1],
-            [xCoord, zCoord]);
-    } else {
-        terrainHeight = MathUtil.barryCentric(
-            [1, this.heights[(gridX + 1) * vertexCount + gridZ], 0],
-            [1, this.heights[(gridX + 1) * vertexCount +  (gridZ + 1)], 1],
-            [0, this.heights[gridX * vertexCount + (gridZ + 1)], 1],
-            [xCoord, zCoord]);
-    }
-    return terrainHeight;
-}
-
-var self = module.exports = {
-    Terrain: Terrain,
+module.exports = {
+    Terrain,
 };
 
 },{"../RenderEngine/Loader.js":14,"../Util/MathUtil.js":35}],31:[function(require,module,exports){
 let serialNumber = 0;
 
-function ModelTexture(id) {
-    this.textureID = id;
+class ModelTexture {
+    constructor(id) {
+        this.textureID = id;
 
-    this.shineDamper = 1;
-    this.reflectivity = 0;
+        this.shineDamper = 1;
+        this.reflectivity = 0;
 
-    this.hasTransparency = false;
-    this.useFakeNormal = false;
+        this.hasTransparency = false;
+        this.useFakeNormal = false;
 
-    this.serialNumber = serialNumber;
-    serialNumber += 1;
+        this.serialNumber = serialNumber;
+        serialNumber += 1;
 
-    this.numberOfRows = 1;
+        this.numberOfRows = 1;
+    }
 }
 
-var self = module.exports = {
-    ModelTexture: ModelTexture,
+module.exports = {
+    ModelTexture,
 };
 
 },{}],32:[function(require,module,exports){
-function TerrainTexture(id) {
-    this.textureID = id;
-
+class TerrainTexture {
+    constructor(id) {
+        this.textureID = id;
+    }
 }
 
-var self = module.exports = {
-    TerrainTexture: TerrainTexture,
+module.exports = {
+    TerrainTexture,
 };
 
 },{}],33:[function(require,module,exports){
-function TerrainTexturePack(backgroundTexture, rTexture, gTexture, bTexture) {
-    this.backgroundTexture = backgroundTexture;
-    this.rTexture = rTexture;
-    this.gTexture = gTexture;
-    this.bTexture = bTexture;
+class TerrainTexturePack {
+    constructor(backgroundTexture, rTexture, gTexture, bTexture) {
+        this.backgroundTexture = backgroundTexture;
+        this.rTexture = rTexture;
+        this.gTexture = gTexture;
+        this.bTexture = bTexture;
+    }
 }
 
-var self = module.exports = {
-    TerrainTexturePack: TerrainTexturePack,
+module.exports = {
+    TerrainTexturePack,
 };
 
 },{}],34:[function(require,module,exports){
-var self = module.exports = {
+module.exports = {
     MAX_LIGHTS: 4,
 };
 
@@ -1899,11 +1965,11 @@ function toQuaternion(rotation) {
 }
 
 function barryCentric(p1, p2, p3, pos) {
-	let det = (p2[2] - p3[2]) * (p1[0] - p3[0]) + (p3[0] - p2[0]) * (p1[2] - p3[2]);
-	let l1 = ((p2[2] - p3[2]) * (pos[0] - p3[0]) + (p3[0] - p2[0]) * (pos[1] - p3[2])) / det;
-	let l2 = ((p3[2] - p1[2]) * (pos[0] - p3[0]) + (p1[0] - p3[0]) * (pos[1] - p3[2])) / det;
-	let l3 = 1.0 - l1 - l2;
-	return l1 * p1[1] + l2 * p2[1] + l3 * p3[1];
+    let det = (p2[2] - p3[2]) * (p1[0] - p3[0]) + (p3[0] - p2[0]) * (p1[2] - p3[2]);
+    let l1 = ((p2[2] - p3[2]) * (pos[0] - p3[0]) + (p3[0] - p2[0]) * (pos[1] - p3[2])) / det;
+    let l2 = ((p3[2] - p1[2]) * (pos[0] - p3[0]) + (p1[0] - p3[0]) * (pos[1] - p3[2])) / det;
+    let l3 = 1.0 - l1 - l2;
+    return l1 * p1[1] + l2 * p2[1] + l3 * p3[1];
 }
 
 function toRadians(angle) {
@@ -1914,42 +1980,48 @@ function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
 }
 
-var self = module.exports = {
-    createTransformationMatrix: (translation, rotation, scale) => {
-        var matrix = mat4.create();
-        mat4.fromRotationTranslationScale(matrix,toQuaternion(rotation), translation, scale);
+function createTransformationMatrix(translation, rotation, scale) {
+    let matrix = mat4.create();
+    mat4.fromRotationTranslationScale(matrix, toQuaternion(rotation), translation, scale);
 
-        return matrix;
-    },
+    return matrix;
+}
 
-    create2DTransformationMatrix: (translation, scale) => {
-        var matrix = mat4.create();
-        mat4.fromRotationTranslationScale(matrix, quat.create(), translation.concat([0]), scale.concat([1]));
+function create2DTransformationMatrix(translation, scale) {
+    let matrix = mat4.create();
+    mat4.fromRotationTranslationScale(matrix, quat.create(), translation.concat([0]), scale.concat([1]));
 
-        return matrix;
-    },
+    return matrix;
+}
 
-    createViewMatrix: function(translation, rotation) {
-        var matrix = mat4.create();
-        mat4.fromQuat(matrix, toQuaternion(rotation));
-        //mat4.rotate(matrix, matrix, rotation[0], [1, 0, 0]);
-        //mat4.rotate(matrix, matrix, rotation[1], [0, 1, 0]);
+function createViewMatrix(translation, rotation) {
+    let matrix = mat4.create();
+    mat4.fromQuat(matrix, toQuaternion(rotation));
+    // mat4.rotate(matrix, matrix, rotation[0], [1, 0, 0]);
+    // mat4.rotate(matrix, matrix, rotation[1], [0, 1, 0]);
 
-        var negateTranslation = vec3.create();
-        vec3.negate(negateTranslation, translation);
-        mat4.translate(matrix, matrix, negateTranslation);
+    let negateTranslation = vec3.create();
+    vec3.negate(negateTranslation, translation);
+    mat4.translate(matrix, matrix, negateTranslation);
 
-        return matrix;
-    },
+    return matrix;
+}
 
-    toRadians: toRadians,
+module.exports = {
+    createTransformationMatrix,
 
-    clamp: clamp,
-    barryCentric: barryCentric,
+    create2DTransformationMatrix,
+
+    createViewMatrix,
+
+    toRadians,
+
+    clamp,
+    barryCentric,
 };
 
 },{}],36:[function(require,module,exports){
-var currentlyPressedKeys = {};
+const currentlyPressedKeys = {};
 function handleKeyUp(event) {
     currentlyPressedKeys[event.keyCode] = false;
 }
@@ -1958,10 +2030,10 @@ function handleKeyDown(event) {
     currentlyPressedKeys[event.keyCode] = true;
 }
 
-var mouseInfo = {
+const mouseInfo = {
     buttonPressed: [false, false, false],
-    buttonLastPos: [[0,0],[0,0],[0,0]],
-    buttonDelta: [[0,0],[0,0],[0,0]],
+    buttonLastPos: [[0, 0], [0, 0], [0, 0]],
+    buttonDelta: [[0, 0], [0, 0], [0, 0]],
     wheelDelta: 0,
 
     mouseWheelCallback: undefined,
@@ -2003,113 +2075,119 @@ function disableCulling() {
     gl.disable(gl.CULL_FACE);
 }
 
-var self = module.exports = {
-    degToRad: function(degrees) {
-        return degrees * Math.PI / 180;
-    },
+function degToRad(degrees) {
+    return degrees * Math.PI / 180;
+}
 
-    initGL: function(canvas) {
-        try {
-            window.gl = canvas.getContext("webgl2");
-            window.gl.viewportWidth = canvas.width;
-            window.gl.viewportHeight = canvas.height;
-        } catch(e) {
+function initGL(canvas) {
+    try {
+        window.gl = canvas.getContext('webgl2');
+        window.gl.viewportWidth = canvas.width;
+        window.gl.viewportHeight = canvas.height;
+    } catch (e) {
+        // TODO: show error
+    }
 
-        }
+    if (!window.gl) {
+        alert('Could not initialise WebGL, sorry :-( ');
+    }
+}
 
-        if (!window.gl) {
-            alert("Could not initialise WebGL, sorry :-( ");
-        }
-    },
+function initKeyboard() {
+    document.onkeydown = handleKeyDown;
+    document.onkeyup = handleKeyUp;
 
-    initKeyboard: function() {
-        document.onkeydown = handleKeyDown;
-        document.onkeyup = handleKeyUp;
+    window.currentlyPressedKeys = currentlyPressedKeys;
+}
 
-        window.currentlyPressedKeys = currentlyPressedKeys;
-    },
+function initMouse() {
+    canvas.onmousedown = handleMouseDown;
+    canvas.onmousewheel = handeMouseWheel;
+    document.onmouseup = handleMouseUp;
+    document.onmousemove = handleMouseMove;
 
-    initMouse: function() {
-        canvas.onmousedown = handleMouseDown;
-        canvas.onmousewheel = handeMouseWheel;
-        document.onmouseup = handleMouseUp;
-        document.onmousemove = handleMouseMove;
+    window.mouseInfo = mouseInfo;
+}
 
-        window.mouseInfo = mouseInfo;
-    },
+function Ajax() {
+    const self = this;
+    self.xmlhttp = new XMLHttpRequest();
 
-    Ajax: function () {
-        var _this = this;
-        this.xmlhttp = new XMLHttpRequest();
+    self.get = (url, callback) => {
+        self.xmlhttp.onreadystatechange = () => {
+            if (self.xmlhttp.readyState === 4) {
+                callback(self.xmlhttp.responseText, self.xmlhttp.status);
+            }
+        };
+        self.xmlhttp.open('GET', url, true);
+        self.xmlhttp.send();
+    };
+}
 
-        this.get = function(url, callback){
-            _this.xmlhttp.onreadystatechange = function(){
-                if(_this.xmlhttp.readyState === 4){
-                    callback(_this.xmlhttp.responseText, _this.xmlhttp.status);
-                }
-            };
-            _this.xmlhttp.open('GET', url, true);
-            _this.xmlhttp.send();
-        }
-    },
-
-    enableCulling: enableCulling,
-    disableCulling: disableCulling,
+module.exports = {
+    degToRad,
+    initGL,
+    initKeyboard,
+    initMouse,
+    Ajax,
+    enableCulling,
+    disableCulling,
 };
 
 },{}],37:[function(require,module,exports){
-var Display = require('./RenderEngine/Display.js');
-var Loader = require('./RenderEngine/Loader.js');
-var MasterRenderer = require('./RenderEngine/MasterRenderer.js');
-var OBJLoader = require('./RenderEngine/OBJLoader.js');
+const Display = require('./RenderEngine/Display.js');
+const Loader = require('./RenderEngine/Loader.js');
+const MasterRenderer = require('./RenderEngine/MasterRenderer.js');
+const OBJLoader = require('./RenderEngine/OBJLoader.js');
 
-var Util = require('./Util/Util.js');
+const Util = require('./Util/Util.js');
 
-var ModelTexture = require('./Texture/ModelTexture.js');
-var TerrainTexture = require('./Texture/TerrainTexture.js');
-var TerrainTexturePack = require('./Texture/TerrainTexturePack.js');
+const ModelTexture = require('./Texture/ModelTexture.js');
+const TerrainTexture = require('./Texture/TerrainTexture.js');
+const TerrainTexturePack = require('./Texture/TerrainTexturePack.js');
 
-var TexturedModel = require('./Model/TexturedModel.js');
+const TexturedModel = require('./Model/TexturedModel.js');
 
-var Entity = require('./Entities/Entity.js');
-var Camera = require('./Entities/Camera.js');
-var Light = require('./Entities/Light.js');
-var Player = require('./Entities/Player.js');
+const Entity = require('./Entities/Entity.js');
+const Camera = require('./Entities/Camera.js');
+const Light = require('./Entities/Light.js');
+const Player = require('./Entities/Player.js');
 
-var Terrain = require('./Terrain/Terrain.js');
-var HeightMap = require('./Terrain/HeightMap.js');
+const Terrain = require('./Terrain/Terrain.js');
+const HeightMap = require('./Terrain/HeightMap.js');
 
-var GUITexture = require('./GUI/GUITexture.js');
-var GUIRenderer = require('./GUI/GUIRenderer.js');
+const GUITexture = require('./GUI/GUITexture.js');
+const GUIRenderer = require('./GUI/GUIRenderer.js');
 
-window.onload = main;
 
-var player;
-var entities;
-var camera;
-var lights;
+let player;
+let entities;
+let camera;
+let lights;
 
-var textures = {};
-var models = {};
+const textures = {};
+const models = {};
 
-var terrain;
-var heightMap;
+let terrain;
+let heightMap;
 
-var guis;
+let guis;
 
 let numResRequiredToLoad = 17;
 
+window.onload = main;
+
 function main() {
     // initialize WEBGL
-    var canvas = document.getElementById("canvas");
+    const canvas = document.getElementById('canvas');
     Util.initGL(canvas);
     Display.createDisplay();
 
     Util.initKeyboard();
     Util.initMouse();
 
-    window.addEventListener("resize", function() { // resize GL on resize
-        canvas.width  = window.innerWidth;
+    window.addEventListener('resize', () => { // resize GL on resize
+        canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
         Util.initGL(canvas);
@@ -2121,98 +2199,99 @@ function main() {
     GUIRenderer.initialize();
 
     // Load graphics
-    OBJLoader.loadOBJModel('res/tree.obj', function(m) {
+    OBJLoader.loadOBJModel('res/tree.obj', (m) => {
         models.treeModel = m;
         finishedLoadingItem();
     });
 
-    OBJLoader.loadOBJModel('res/grassModel.obj', function(m) {
+    OBJLoader.loadOBJModel('res/grassModel.obj', (m) => {
         models.grassModel = m;
         finishedLoadingItem();
     });
 
-    OBJLoader.loadOBJModel('res/fern.obj', function(m) {
+    OBJLoader.loadOBJModel('res/fern.obj', (m) => {
         models.fernModel = m;
         finishedLoadingItem();
     });
 
-    OBJLoader.loadOBJModel('res/person.obj', function(m) {
+    OBJLoader.loadOBJModel('res/person.obj', (m) => {
         models.playerModel = m;
         finishedLoadingItem();
     });
 
-    OBJLoader.loadOBJModel('res/lamp.obj', function(m) {
+    OBJLoader.loadOBJModel('res/lamp.obj', (m) => {
         models.lampModel = m;
         finishedLoadingItem();
     });
 
-    var heightMapImage = new Image(); heightMapImage.src = 'res/heightmap.png';
+    const heightMapImage = new Image();
+    heightMapImage.src = 'res/heightmap.png';
     heightMapImage.onload = () => {
         heightMap = new HeightMap.HeightMap(heightMapImage);
         finishedLoadingItem();
     };
 
-    Loader.loadTexture('res/playerTexture.png', function(t) {
+    Loader.loadTexture('res/playerTexture.png', (t) => {
         textures.playerTexture = new ModelTexture.ModelTexture(t);
         textures.playerTexture.shineDamper = 10;
         textures.playerTexture.reflectivity = 1.5;
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/tree.png', function(t) {
+    Loader.loadTexture('res/tree.png', (t) => {
         textures.treeTexture = new ModelTexture.ModelTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/grassTexture.png', function(t) {
+    Loader.loadTexture('res/grassTexture.png', (t) => {
         textures.grassTexture = new ModelTexture.ModelTexture(t);
         textures.grassTexture.hasTransparency = true;
         textures.grassTexture.useFakeNormal = true;
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/fern2.png', function(t) {
+    Loader.loadTexture('res/fern2.png', (t) => {
         textures.fernTexture = new ModelTexture.ModelTexture(t);
         textures.fernTexture.hasTransparency = true;
         textures.fernTexture.numberOfRows = 2;
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/grass.png', function(t) {
+    Loader.loadTexture('res/grass.png', (t) => {
         textures.backgroundTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/mud.png', function(t) {
+    Loader.loadTexture('res/mud.png', (t) => {
         textures.rTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/grassFlowers.png', function(t) {
+    Loader.loadTexture('res/grassFlowers.png', (t) => {
         textures.gTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/path.png', function(t) {
+    Loader.loadTexture('res/path.png', (t) => {
         textures.bTexture = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/blendMap.png', function(t) {
+    Loader.loadTexture('res/blendMap.png', (t) => {
         textures.blendMap = new TerrainTexture.TerrainTexture(t);
         finishedLoadingItem();
     });
 
-    Loader.loadTexture('res/lamp.png', function(t) {
+    Loader.loadTexture('res/lamp.png', (t) => {
         textures.lampTexture = new ModelTexture.ModelTexture(t);
         textures.lampTexture.useFakeNormal = true;
         finishedLoadingItem();
     });
 
     guis = [];
-    Loader.loadTexture('res/health.png', function(t) {
-        let guiTexture = new ModelTexture.ModelTexture(t);
-        let gui = new GUITexture.GUITexture(guiTexture, [-0.6, 0.8], [0.25, 0.25]);
+    Loader.loadTexture('res/health.png', (t) => {
+        const guiTexture = new ModelTexture.ModelTexture(t);
+        const gui = new GUITexture.GUITexture(guiTexture, [-0.6, 0.8], [0.25, 0.25]);
         guis.push(gui);
         finishedLoadingItem();
     });
@@ -2220,22 +2299,23 @@ function main() {
 
 function finishedLoadingItem() {
     numResRequiredToLoad -= 1;
-    if (numResRequiredToLoad == 0) {
+    if (numResRequiredToLoad === 0) {
         allResLoaded();
     }
 }
 
+
 function allResLoaded() {
-    let treeTexturedModel = new TexturedModel.TexturedModel(models.treeModel, textures.treeTexture);
-    let grassTexturedModel =  new TexturedModel.TexturedModel(models.grassModel, textures.grassTexture);
-    let fernTexturedModel =  new TexturedModel.TexturedModel(models.fernModel, textures.fernTexture);
-    let lampTexturedModel = new TexturedModel.TexturedModel(models.lampModel, textures.lampTexture);
+     const treeTexturedModel = new TexturedModel.TexturedModel(models.treeModel, textures.treeTexture);
+     const grassTexturedModel = new TexturedModel.TexturedModel(models.grassModel, textures.grassTexture);
+     const fernTexturedModel = new TexturedModel.TexturedModel(models.fernModel, textures.fernTexture);
+     const lampTexturedModel = new TexturedModel.TexturedModel(models.lampModel, textures.lampTexture);
 
     player = new Player.Player(
         new TexturedModel.TexturedModel(models.playerModel, textures.playerTexture), [0, 0, 0], [0, 0, 0], [0.3, 0.3, 0.3]);
     camera = new Camera.Camera(player);
 
-    let texturePack = new TerrainTexturePack.TerrainTexturePack(
+     const texturePack = new TerrainTexturePack.TerrainTexturePack(
         textures.backgroundTexture, textures.rTexture, textures.gTexture, textures.bTexture);
     terrain = new Terrain.Terrain(0, -1, texturePack, textures.blendMap, heightMap);
 
@@ -2272,7 +2352,7 @@ function allResLoaded() {
 }
 
 function tick() {
-    let next = Display.updateDisplay();
+    const next = Display.updateDisplay();
     if (next) {
         requestAnimationFrame(tick);
     } else {
@@ -2281,11 +2361,11 @@ function tick() {
     }
 
     camera.move();
-    //camera.position = [player.position[0] - 20, player.position[1] + 20, player.position[2] + 60];
+    // camera.position = [player.position[0] - 20, player.position[1] + 20, player.position[2] + 60];
     player.move(terrain);
 
     MasterRenderer.processEntity(player);
-    entities.forEach((entity) => { MasterRenderer.processEntity(entity) });
+    entities.forEach((entity) => { MasterRenderer.processEntity(entity); });
     MasterRenderer.processTerrain(terrain);
     MasterRenderer.render(lights, camera);
 

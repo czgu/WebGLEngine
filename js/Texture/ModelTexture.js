@@ -1,20 +1,22 @@
 let serialNumber = 0;
 
-function ModelTexture(id) {
-    this.textureID = id;
+class ModelTexture {
+    constructor(id) {
+        this.textureID = id;
 
-    this.shineDamper = 1;
-    this.reflectivity = 0;
+        this.shineDamper = 1;
+        this.reflectivity = 0;
 
-    this.hasTransparency = false;
-    this.useFakeNormal = false;
+        this.hasTransparency = false;
+        this.useFakeNormal = false;
 
-    this.serialNumber = serialNumber;
-    serialNumber += 1;
+        this.serialNumber = serialNumber;
+        serialNumber += 1;
 
-    this.numberOfRows = 1;
+        this.numberOfRows = 1;
+    }
 }
 
-var self = module.exports = {
-    ModelTexture: ModelTexture,
+module.exports = {
+    ModelTexture,
 };

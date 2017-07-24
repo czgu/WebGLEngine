@@ -1,12 +1,12 @@
-var Util = require('../Util/Util.js');
-var Loader = require('./Loader.js');
+const Util = require('../Util/Util.js');
+const Loader = require('./Loader.js');
 
 function processVertex(vertexData, vertices, indices) {
-    let vertexIndex = parseInt(vertexData[0]) - 1;
-    let vertex = vertices[vertexIndex];
+    const vertexIndex = parseInt(vertexData[0], 10) - 1;
+    const vertex = vertices[vertexIndex];
 
-    let textureIndex = parseInt(vertexData[1]) - 1;
-    let normalIndex = parseInt(vertexData[2]) - 1;
+    const textureIndex = parseInt(vertexData[1], 10) - 1;
+    const normalIndex = parseInt(vertexData[2], 10) - 1;
 
     if (!vertex.isSet()) {
         vertex.textureIndex = textureIndex;
@@ -21,9 +21,9 @@ function dealWithAlreadyProcessedVertex(vertex, textureIndex, normalIndex, indic
     if (vertex.hasSameTextureAndNormal(textureIndex, normalIndex)) {
         indices.push(vertex.index);
     } else {
-        let similarVertex = vertex.duplicateVertex;
+        const similarVertex = vertex.duplicateVertex;
         if (similarVertex == null) {
-            let duplicateVertex = new Vertex(vertices.length, vertex.position);
+            const duplicateVertex = new Vertex(vertices.length, vertex.position);
             duplicateVertex.textureIndex = textureIndex;
             duplicateVertex.normalIndex = normalIndex;
 
@@ -51,9 +51,9 @@ function convertDataToArrays(vertices, textures, normals, verticesArray, texture
     vertices.forEach((vertex) => {
         furthestPoint = Math.max(vertex.length, furthestPoint);
 
-        let position = vertex.position;
-        let textureCoord = textures[vertex.textureIndex];
-        let normalVector = normals[vertex.normalIndex];
+        const position = vertex.position;
+        const textureCoord = textures[vertex.textureIndex];
+        const normalVector = normals[vertex.normalIndex];
 
         verticesArray[i * 3] = position[0];
         verticesArray[i * 3 + 1] = position[1];
@@ -66,47 +66,43 @@ function convertDataToArrays(vertices, textures, normals, verticesArray, texture
         normalsArray[i * 3 + 1] = normalVector[1];
         normalsArray[i * 3 + 2] = normalVector[2];
 
-         i++;
+         i += 1;
     });
 
     return furthestPoint;
 }
 
 function loadOBJModel(fileName, callback) {
-    new Util.Ajax().get(fileName, function(data, status) {
+    new Util.Ajax().get(fileName, (data, status) => {
         if (status === 200) {
-            self.parseOBJModel(data, callback);
+            parseOBJModel(data, callback);
         } else {
-            alert('Failed to load ' + fileName);
+            alert(`Failed to load ${fileName}`);
         }
-    })
+    });
 }
 
 function parseOBJModel(file, callback) {
-    let lines = file.split('\n');
+    const lines = file.split('\n');
 
-    var vertices = [];
-    var textures = [];
-    var normals = [];
-    var indices = [];
+    const vertices = [];
+    const textures = [];
+    const normals = [];
+    const indices = [];
 
-    var texturesArray;
-    var normalsArray;
-    var verticesArray;
-
-    var i = 0;
+    let i = 0;
     while (i < lines.length) {
-        let line = lines[i];
-        let currentLine = line.split(' ');
+        const line = lines[i];
+        const currentLine = line.split(' ');
         if (line.startsWith('v ')) {
-            let vertex = new Vertex(
+            const vertex = new Vertex(
                 vertices.length, [parseFloat(currentLine[1]), parseFloat(currentLine[2]), parseFloat(currentLine[3])]);
             vertices.push(vertex);
         } else if (line.startsWith('vt ')) {
-            let texture = [parseFloat(currentLine[1]), parseFloat(currentLine[2])];
+            const texture = [parseFloat(currentLine[1]), parseFloat(currentLine[2])];
             textures.push(texture);
         } else if (line.startsWith('vn ')) {
-            let normal = [parseFloat(currentLine[1]), parseFloat(currentLine[2]), parseFloat(currentLine[3])];
+            const normal = [parseFloat(currentLine[1]), parseFloat(currentLine[2]), parseFloat(currentLine[3])];
             normals.push(normal);
         } else if (line.startsWith('f ')) {
             break;
@@ -116,15 +112,15 @@ function parseOBJModel(file, callback) {
 
 
     while (i < lines.length) {
-        let line = lines[i];
+        const line = lines[i];
         i += 1;
 
         if (!line.startsWith('f ')) {
             continue;
         }
 
-        let currentLine = line.split(' ');
-        let verticesData = [1, 2, 3].map((n) => currentLine[n].split('/'));
+        const currentLine = line.split(' ');
+        const verticesData = [1, 2, 3].map(n => currentLine[n].split('/'));
 
         verticesData.forEach((vertexData) => {
             processVertex(vertexData, vertices, indices);
@@ -133,44 +129,48 @@ function parseOBJModel(file, callback) {
 
     removeUnusedVertices(vertices);
 
-    verticesArray = new Array(vertices.length * 3);
-    texturesArray = new Array(vertices.length * 2);
-    normalsArray = new Array(vertices.length * 3);
+    const verticesArray = new Array(vertices.length * 3);
+    const texturesArray = new Array(vertices.length * 2);
+    const normalsArray = new Array(vertices.length * 3);
 
-    let furthestPoint = convertDataToArrays(vertices, textures, normals, verticesArray, texturesArray, normalsArray);
-    let modelData = new ModelData(verticesArray, texturesArray, normalsArray, indices, furthestPoint);
-    let model = Loader.loadToVAO(modelData.vertices, modelData.textures, modelData.normals, modelData.indices);
+    const furthestPoint = convertDataToArrays(vertices, textures, normals, verticesArray, texturesArray, normalsArray);
+    const modelData = new ModelData(verticesArray, texturesArray, normalsArray, indices, furthestPoint);
+    const model = Loader.loadToVAO(modelData.vertices, modelData.textures, modelData.normals, modelData.indices);
     callback(model, modelData);
 }
 
-function ModelData(vertices, textures, normals, indices, furthestPoint) {
-    this.vertices = vertices;
-    this.textures = textures;
-    this.normals = normals;
-    this.indices = indices;
-    this.furthestPoint = furthestPoint;
+class ModelData {
+    constructor(vertices, textures, normals, indices, furthestPoint) {
+        this.vertices = vertices;
+        this.textures = textures;
+        this.normals = normals;
+        this.indices = indices;
+        this.furthestPoint = furthestPoint;
+    }
 }
 
-function Vertex(index, position) {
-    this.index = index;
-    this.position = position;
-    this.length = vec3.length(position);
+class Vertex {
+    constructor(index, position) {
+        this.index = index;
+        this.position = position;
+        this.length = vec3.length(position);
 
-    this.textureIndex = undefined;
-    this.normalIndex = undefined;
-    this.duplicateVertex = null;
+        this.textureIndex = undefined;
+        this.normalIndex = undefined;
+        this.duplicateVertex = null;
+    }
+
+    isSet() {
+        return this.textureIndex !== undefined && this.normalIndex !== undefined;
+    }
+
+    hasSameTextureAndNormal(textureIndex, normalIndex) {
+        return this.textureIndex === textureIndex && this.normalIndex === normalIndex;
+    }
 }
 
-Vertex.prototype.isSet = function() {
-    return this.textureIndex != undefined && this.normalIndex != undefined;
-}
-
-Vertex.prototype.hasSameTextureAndNormal = function(textureIndex, normalIndex) {
-    return this.textureIndex == textureIndex && this.normalIndex == normalIndex;
-}
-
-var self = module.exports = {
-    loadOBJModel: loadOBJModel,
-    parseOBJModel: parseOBJModel,
-    ModelData: ModelData,
-}
+module.exports = {
+    loadOBJModel,
+    parseOBJModel,
+    ModelData,
+};

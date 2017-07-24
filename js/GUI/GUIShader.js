@@ -1,27 +1,26 @@
-var ShaderProgram = require('../Shader/ShaderProgram.js');
-var MathUtil = require('../Util/MathUtil.js');
+const ShaderProgram = require('../Shader/ShaderProgram.js');
 
 const VERTEX_SHADER = require('./GLSL/GUIVertexShader.c');
 const FRAGMENT_SHADER = require('./GLSL/GUIFragmentShader.c');
 
-function GUIShader() {
-    ShaderProgram.ShaderProgram.call(this, VERTEX_SHADER, FRAGMENT_SHADER);
-}
-GUIShader.prototype = Object.create(ShaderProgram.ShaderProgram.prototype);
-GUIShader.prototype.constructor = GUIShader;
+class GUIShader extends ShaderProgram.ShaderProgram {
+    constructor() {
+        super(VERTEX_SHADER, FRAGMENT_SHADER);
+    }
 
-GUIShader.prototype.bindAttributes = function() {
-    this.bindAttribute(0, "position");
+    bindAttributes() {
+        this.bindAttribute(0, 'position');
+    }
+
+    getAllUniformLocations() {
+        this.transformationMatrixLocation = this.getUniformLocation('transformationMatrix');
+    }
+
+    loadTransMatrix(matrix) {
+        this.loadMatrix(this.transformationMatrixLocation, matrix);
+    }
 }
 
-GUIShader.prototype.getAllUniformLocations = function() {
-    this.transformationMatrixLocation = this.getUniformLocation("transformationMatrix");
-}
-
-GUIShader.prototype.loadTransMatrix = function(matrix) {
-    this.loadMatrix(this.transformationMatrixLocation, matrix);
-}
-
-var self = module.exports = {
-    GUIShader: GUIShader,
-}
+module.exports = {
+    GUIShader,
+};

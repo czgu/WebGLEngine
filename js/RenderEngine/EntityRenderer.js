@@ -1,12 +1,8 @@
-var RawModel = require('../Model/RawModel.js');
-var MathUtil = require('../Util/MathUtil.js');
-var Util = require('../Util/Util.js');
-var TexturedModel = require('../Model/TexturedModel.js');
-var Entity = require('../Entities/Entity.js');
-var MasterRenderer = require('./MasterRenderer.js');
+const MathUtil = require('../Util/MathUtil.js');
+const Util = require('../Util/Util.js');
 
-var projectionMatrix;
-var shader;
+let projectionMatrix;
+let shader;
 
 function initialize(_shader, _projectionMatrix) {
     shader = _shader;
@@ -18,12 +14,12 @@ function initialize(_shader, _projectionMatrix) {
 }
 
 function render(texturedModelEntities) {
-    texturedModelEntities.forEach(function(texturedModelEntitiesPair) {
-        let texturedModel = texturedModelEntitiesPair[0];
-        let entities = texturedModelEntitiesPair[1];
+    texturedModelEntities.forEach((texturedModelEntitiesPair) => {
+        const texturedModel = texturedModelEntitiesPair[0];
+        const entities = texturedModelEntitiesPair[1];
 
         preparedTexturedModel(texturedModel);
-        entities.forEach(function(entity) {
+        entities.forEach((entity) => {
             prepareInstance(entity);
             gl.drawElements(
                 gl.TRIANGLES, texturedModel.rawModel.vertexCount, gl.UNSIGNED_INT, 0);
@@ -33,7 +29,7 @@ function render(texturedModelEntities) {
 }
 
 function preparedTexturedModel(texturedModel) {
-    var model = texturedModel.rawModel;
+    const model = texturedModel.rawModel;
 
     gl.bindVertexArray(model.vaoID);
 
@@ -41,7 +37,7 @@ function preparedTexturedModel(texturedModel) {
     gl.enableVertexAttribArray(1);
     gl.enableVertexAttribArray(2);
 
-    var texture = texturedModel.texture;
+    const texture = texturedModel.texture;
     shader.loadNumberOfRows(texture.numberOfRows);
     if (texture.hasTransparency) {
         Util.disableCulling();
@@ -63,13 +59,13 @@ function unbindTexturedModel() {
 }
 
 function prepareInstance(entity) {
-    var mvMatrix = MathUtil.createTransformationMatrix(
+    const mvMatrix = MathUtil.createTransformationMatrix(
         entity.position, entity.rotation, entity.scale);
     shader.loadTransMatrix(mvMatrix);
     shader.loadOffset(entity.getTextureXYOffset());
 }
 
-var self = module.exports = {
-    initialize: initialize,
-    render: render,
+module.exports = {
+    initialize,
+    render,
 };

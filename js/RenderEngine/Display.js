@@ -1,26 +1,30 @@
-var lastFrameTime;
+let lastFrameTime;
 
 function getCurrentTime() {
     return new Date().getTime();
 }
 
-var self = module.exports = {
-    createDisplay: function() {
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-        lastFrameTime = getCurrentTime();
-    },
+function createDisplay() {
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    lastFrameTime = getCurrentTime();
+}
 
-    updateDisplay: function() {
-        let currentFrameTime = getCurrentTime();
-        self.delta = (currentFrameTime - lastFrameTime) / 1000;
-        lastFrameTime = currentFrameTime;
+function updateDisplay() {
+    const currentFrameTime = getCurrentTime();
+    self.delta = (currentFrameTime - lastFrameTime) / 1000;
+    lastFrameTime = currentFrameTime;
 
-        return true;
-    },
+    return true;
+}
 
-    closeDisplay: function() {
+function closeDisplay() {
 
-    },
+}
 
+module.exports = {
+    createDisplay,
+    updateDisplay,
+    closeDisplay,
     delta: undefined,
 };
+const self = module.exports;

@@ -1,65 +1,64 @@
-var MathUtil = require('../Util/MathUtil.js');
+const MathUtil = require('../Util/MathUtil.js');
 
-function Camera(player) {
-    this.position = [0,0,0];
-    this.pitch = MathUtil.toRadians(30);
-    this.yaw = 0;
-    this.roll = 0;
+class Camera {
+    constructor(player) {
+        this.position = [0, 0, 0];
+        this.pitch = MathUtil.toRadians(30);
+        this.yaw = 0;
+        this.roll = 0;
 
-    this.player = player;
-    this.distanceFromPlayer = 30.0;
-    this.angleAroundPlayer = 0;
+        this.player = player;
+        this.distanceFromPlayer = 30.0;
+        this.angleAroundPlayer = 0;
 
-    mouseInfo.mouseWheelCallback = this.calculateZoom(this);
-}
+        mouseInfo.mouseWheelCallback = this.calculateZoom(this);
+    }
 
-const SPEED = 0.5;
+    move() {
+        this.calculatePitch();
+        this.calculateAngleAroundPlayer();
 
-Camera.prototype.move = function() {
-    this.calculatePitch();
-    this.calculateAngleAroundPlayer();
+        this.calculateCameraPosition();
 
-    this.calculateCameraPosition();
+        this.yaw = Math.PI - (this.player.rotation[1] + this.angleAroundPlayer);
+    }
 
-    this.yaw = Math.PI - (this.player.rotation[1] + this.angleAroundPlayer);
-}
+    calculateZoom(self) {
+        return (zoomLevel) => {
+            self.distanceFromPlayer -= zoomLevel * 0.01;
+            self.distanceFromPlayer = MathUtil.clamp(self.distanceFromPlayer, 5, 100);
+        };
+    }
 
+    calculatePitch() {
+        if (mouseInfo.buttonPressed[2]) {
+            const pitchChange = mouseInfo.buttonDelta[2][1] * 0.01;
+            this.pitch -= pitchChange;
+            this.pitch = MathUtil.clamp(this.pitch, -Math.PI / 2, Math.PI / 2);
+        }
+    }
 
-Camera.prototype.calculateZoom = (_this) => {
-    return (zoomLevel) => {
-        _this.distanceFromPlayer -= zoomLevel * 0.01;
-        _this.distanceFromPlayer = MathUtil.clamp(_this.distanceFromPlayer, 5, 100);
-    };
-}
+    calculateAngleAroundPlayer() {
+        if (mouseInfo.buttonPressed[0]) {
+            const angleChange = mouseInfo.buttonDelta[0][0] * 0.01;
+            this.angleAroundPlayer -= angleChange;
+        }
+    }
 
-Camera.prototype.calculatePitch = function() {
-    if(mouseInfo.buttonPressed[2]) {
-        let pitchChange = mouseInfo.buttonDelta[2][1] * 0.01;
-        this.pitch -= pitchChange;
-        this.pitch = MathUtil.clamp(this.pitch, -Math.PI / 2, Math.PI / 2);
+    calculateCameraPosition() {
+        const horizontalDistance = (this.distanceFromPlayer * Math.cos(this.pitch));
+        const verticalDistance = (this.distanceFromPlayer * Math.sin(this.pitch));
+
+        this.position[1] = this.player.position[1] + verticalDistance;
+        const angleXZ = this.player.rotation[1] + this.angleAroundPlayer;
+        const dx = horizontalDistance * Math.sin(angleXZ);
+        const dz = horizontalDistance * Math.cos(angleXZ);
+
+        this.position[0] = this.player.position[0] - dx;
+        this.position[2] = this.player.position[2] - dz;
     }
 }
 
-Camera.prototype.calculateAngleAroundPlayer = function() {
-    if (mouseInfo.buttonPressed[0]) {
-        let angleChange = mouseInfo.buttonDelta[0][0] * 0.01;
-        this.angleAroundPlayer -= angleChange;
-    }
-}
-
-Camera.prototype.calculateCameraPosition = function() {
-    let horizontalDistance = (this.distanceFromPlayer * Math.cos(this.pitch));
-    let verticalDistance = (this.distanceFromPlayer * Math.sin(this.pitch));
-
-    this.position[1] = this.player.position[1] + verticalDistance;
-    let angleXZ = this.player.rotation[1] + this.angleAroundPlayer;
-    let dx = horizontalDistance * Math.sin(angleXZ);
-    let dz = horizontalDistance * Math.cos(angleXZ);
-
-    this.position[0] = this.player.position[0] - dx;
-    this.position[2] = this.player.position[2] - dz;
-}
-
-var self = module.exports = {
-    Camera: Camera,
-}
+module.exports = {
+    Camera,
+};

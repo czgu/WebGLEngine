@@ -1,10 +1,7 @@
-var RawModel = require('../Model/RawModel.js');
-var MathUtil = require('../Util/MathUtil.js');
-var TexturedModel = require('../Model/TexturedModel.js');
-var Terrain = require('../Terrain/Terrain.js');
+const MathUtil = require('../Util/MathUtil.js');
 
-var projectionMatrix;
-var shader;
+let projectionMatrix;
+let shader;
 
 function initialize(_shader, _projectionMatrix) {
     shader = _shader;
@@ -17,7 +14,7 @@ function initialize(_shader, _projectionMatrix) {
 }
 
 function render(terrains) {
-    terrains.forEach(function(terrain) {
+    terrains.forEach((terrain) => {
         prepareTerrain(terrain);
         loadModelMatrix(terrain);
 
@@ -25,24 +22,24 @@ function render(terrains) {
             gl.TRIANGLES, terrain.rawModel.vertexCount, gl.UNSIGNED_INT, 0);
 
         unbindTexturedModel(terrain);
-    })
+    });
 }
 
 function prepareTerrain(terrain) {
-    var model = terrain.rawModel;
+    const model = terrain.rawModel;
     gl.bindVertexArray(model.vaoID);
 
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
     gl.enableVertexAttribArray(2);
 
-    var texture = terrain.texture;
+    // const texture = terrain.texture;
     bindTextures(terrain);
     shader.loadShineVariables(1, 0);
 }
 
 function bindTextures(terrain) {
-    let texturePack = terrain.texturePack;
+    const texturePack = terrain.texturePack;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texturePack.backgroundTexture.textureID);
     gl.activeTexture(gl.TEXTURE1);
@@ -64,12 +61,12 @@ function unbindTexturedModel() {
 }
 
 function loadModelMatrix(terrain) {
-    var mvMatrix = MathUtil.createTransformationMatrix(
+    const mvMatrix = MathUtil.createTransformationMatrix(
         [terrain.x, 0, terrain.z], [0, 0, 0], [1, 1, 1]);
     shader.loadTransMatrix(mvMatrix);
 }
 
-var self = module.exports = {
-    initialize: initialize,
-    render: render,
+module.exports = {
+    initialize,
+    render,
 };

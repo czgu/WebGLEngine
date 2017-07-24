@@ -1,25 +1,25 @@
-var StaticShader = require('../Shader/StaticShader.js');
-var EntityRenderer = require('./EntityRenderer.js');
-var TerrainShader = require('../Shader/TerrainShader.js');
-var TerrainRenderer = require('./TerrainRenderer.js');
-var SkyboxRenderer = require('../Skybox/SkyboxRenderer.js');
-var Util = require('../Util/Util.js');
+const StaticShader = require('../Shader/StaticShader.js');
+const EntityRenderer = require('./EntityRenderer.js');
+const TerrainShader = require('../Shader/TerrainShader.js');
+const TerrainRenderer = require('./TerrainRenderer.js');
+const SkyboxRenderer = require('../Skybox/SkyboxRenderer.js');
+const Util = require('../Util/Util.js');
 
-var shader;
-var terrainShader;
+let shader;
+let terrainShader;
 
-var texturedModelEntities = [];
-var texturedModelIndicesLookUp = {};
+const texturedModelEntities = [];
+let texturedModelIndicesLookUp = {};
 
-var terrains = [];
+const terrains = [];
 
 // ProjectionMatrix related
 const FOV = 70;
 const NEAR_PLANE = 0.1;
 const FAR_PLANE = 1000;
-var projectionMatrix = mat4.create();
+const projectionMatrix = mat4.create();
 
-var skyColor = [0.5, 0.5, 0.5];
+const skyColor = [0.5, 0.5, 0.5];
 
 function initialize() {
     mat4.perspective(projectionMatrix, FOV, gl.viewportWidth / gl.viewportHeight, NEAR_PLANE, FAR_PLANE);
@@ -34,7 +34,6 @@ function initialize() {
     TerrainRenderer.initialize(terrainShader, projectionMatrix);
 
     SkyboxRenderer.initialize(projectionMatrix);
-
 }
 
 function render(lights, camera) {
@@ -54,7 +53,7 @@ function render(lights, camera) {
     TerrainRenderer.render(terrains);
     terrainShader.stop();
 
-    SkyboxRenderer.render(camera);
+    SkyboxRenderer.render(camera, skyColor);
 
     texturedModelEntities.length = 0;
     texturedModelIndicesLookUp = {};
@@ -63,13 +62,12 @@ function render(lights, camera) {
 }
 
 function processEntity(entity) {
-    let texturedModel = entity.texturedModel;
-    let key = texturedModel.rawModel.serialNumber + "," + texturedModel.texture.serialNumber;
-
+    const texturedModel = entity.texturedModel;
+    const key = `${texturedModel.rawModel.serialNumber}, ${texturedModel.texture.serialNumber}`;
     if (key in texturedModelIndicesLookUp) {
         texturedModelEntities[texturedModelIndicesLookUp[key]][1].push(entity);
     } else {
-        let value = texturedModelEntities.length;
+        const value = texturedModelEntities.length;
         texturedModelIndicesLookUp[key] = value;
         texturedModelEntities.push([texturedModel, [entity]]);
     }
@@ -91,12 +89,10 @@ function prepare() {
     gl.clearColor(skyColor[0], skyColor[1], skyColor[2], 1.0);
 }
 
-
-
-var self = module.exports = {
-    render: render,
-    processEntity: processEntity,
-    processTerrain: processTerrain,
-    cleanUp: cleanUp,
-    initialize: initialize,
-}
+module.exports = {
+    render,
+    processEntity,
+    processTerrain,
+    cleanUp,
+    initialize,
+};

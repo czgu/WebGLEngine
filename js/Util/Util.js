@@ -1,4 +1,4 @@
-var currentlyPressedKeys = {};
+const currentlyPressedKeys = {};
 function handleKeyUp(event) {
     currentlyPressedKeys[event.keyCode] = false;
 }
@@ -7,10 +7,10 @@ function handleKeyDown(event) {
     currentlyPressedKeys[event.keyCode] = true;
 }
 
-var mouseInfo = {
+const mouseInfo = {
     buttonPressed: [false, false, false],
-    buttonLastPos: [[0,0],[0,0],[0,0]],
-    buttonDelta: [[0,0],[0,0],[0,0]],
+    buttonLastPos: [[0, 0], [0, 0], [0, 0]],
+    buttonDelta: [[0, 0], [0, 0], [0, 0]],
     wheelDelta: 0,
 
     mouseWheelCallback: undefined,
@@ -52,56 +52,61 @@ function disableCulling() {
     gl.disable(gl.CULL_FACE);
 }
 
-var self = module.exports = {
-    degToRad: function(degrees) {
-        return degrees * Math.PI / 180;
-    },
+function degToRad(degrees) {
+    return degrees * Math.PI / 180;
+}
 
-    initGL: function(canvas) {
-        try {
-            window.gl = canvas.getContext("webgl2");
-            window.gl.viewportWidth = canvas.width;
-            window.gl.viewportHeight = canvas.height;
-        } catch(e) {
+function initGL(canvas) {
+    try {
+        window.gl = canvas.getContext('webgl2');
+        window.gl.viewportWidth = canvas.width;
+        window.gl.viewportHeight = canvas.height;
+    } catch (e) {
+        // TODO: show error
+    }
 
-        }
+    if (!window.gl) {
+        alert('Could not initialise WebGL, sorry :-( ');
+    }
+}
 
-        if (!window.gl) {
-            alert("Could not initialise WebGL, sorry :-( ");
-        }
-    },
+function initKeyboard() {
+    document.onkeydown = handleKeyDown;
+    document.onkeyup = handleKeyUp;
 
-    initKeyboard: function() {
-        document.onkeydown = handleKeyDown;
-        document.onkeyup = handleKeyUp;
+    window.currentlyPressedKeys = currentlyPressedKeys;
+}
 
-        window.currentlyPressedKeys = currentlyPressedKeys;
-    },
+function initMouse() {
+    canvas.onmousedown = handleMouseDown;
+    canvas.onmousewheel = handeMouseWheel;
+    document.onmouseup = handleMouseUp;
+    document.onmousemove = handleMouseMove;
 
-    initMouse: function() {
-        canvas.onmousedown = handleMouseDown;
-        canvas.onmousewheel = handeMouseWheel;
-        document.onmouseup = handleMouseUp;
-        document.onmousemove = handleMouseMove;
+    window.mouseInfo = mouseInfo;
+}
 
-        window.mouseInfo = mouseInfo;
-    },
+function Ajax() {
+    const self = this;
+    self.xmlhttp = new XMLHttpRequest();
 
-    Ajax: function () {
-        var _this = this;
-        this.xmlhttp = new XMLHttpRequest();
+    self.get = (url, callback) => {
+        self.xmlhttp.onreadystatechange = () => {
+            if (self.xmlhttp.readyState === 4) {
+                callback(self.xmlhttp.responseText, self.xmlhttp.status);
+            }
+        };
+        self.xmlhttp.open('GET', url, true);
+        self.xmlhttp.send();
+    };
+}
 
-        this.get = function(url, callback){
-            _this.xmlhttp.onreadystatechange = function(){
-                if(_this.xmlhttp.readyState === 4){
-                    callback(_this.xmlhttp.responseText, _this.xmlhttp.status);
-                }
-            };
-            _this.xmlhttp.open('GET', url, true);
-            _this.xmlhttp.send();
-        }
-    },
-
-    enableCulling: enableCulling,
-    disableCulling: disableCulling,
+module.exports = {
+    degToRad,
+    initGL,
+    initKeyboard,
+    initMouse,
+    Ajax,
+    enableCulling,
+    disableCulling,
 };
