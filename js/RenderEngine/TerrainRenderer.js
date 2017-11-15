@@ -1,19 +1,20 @@
 const MathUtil = require('../Util/MathUtil.js');
+const TerrainShader = require('../Shader/TerrainShader.js');
 
-let projectionMatrix;
 let shader;
 
-function initialize(_shader, _projectionMatrix) {
-    shader = _shader;
-    projectionMatrix = _projectionMatrix;
+function initialize(camera) {
+    shader = new TerrainShader.TerrainShader();
 
     shader.start();
-    shader.loadProjectionMatrix(projectionMatrix);
+    shader.loadProjectionMatrix(camera.projectionMatrix);
     shader.connectTextureUnits();
     shader.stop();
 }
 
-function render(terrains) {
+function render(camera, lights, skyColor, terrains) {
+    prepareRender(camera, lights, skyColor);
+
     terrains.forEach((terrain) => {
         prepareTerrain(terrain);
         loadModelMatrix(terrain);
@@ -23,6 +24,18 @@ function render(terrains) {
 
         unbindTexturedModel(terrain);
     });
+    stopRender();
+}
+
+function prepareRender(camera, lights, skyColor) {
+    shader.start();
+    shader.loadSkyColor(skyColor);
+    shader.loadLights(lights);
+    shader.loadCamera(camera);
+}
+
+function stopRender() {
+    shader.stop();
 }
 
 function prepareTerrain(terrain) {
@@ -66,7 +79,12 @@ function loadModelMatrix(terrain) {
     shader.loadTransMatrix(mvMatrix);
 }
 
+function cleanUp() {
+    shader.cleanUp();
+}
+
 module.exports = {
     initialize,
     render,
+    cleanUp,
 };

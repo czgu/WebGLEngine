@@ -1,5 +1,9 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 const MathUtil = require('../Util/MathUtil.js');
+// ProjectionMatrix related
+const FOV = 70;
+const NEAR_PLANE = 0.1;
+const FAR_PLANE = 1000;
 
 class Camera {
     constructor(player) {
@@ -7,6 +11,10 @@ class Camera {
         this.pitch = MathUtil.toRadians(30);
         this.yaw = 0;
         this.roll = 0;
+
+        this.projectionMatrix = mat4.create();
+        mat4.perspective(this.projectionMatrix, FOV, gl.viewportWidth / gl.viewportHeight, NEAR_PLANE, FAR_PLANE);
+        this.clipPlane = [-0.9979565838860582, 0.046191432528962184, -0.04414849017158111, -8.465081607404844];
 
         this.player = player;
         this.distanceFromPlayer = 30.0;
@@ -58,13 +66,77 @@ class Camera {
         this.position[0] = this.player.position[0] - dx;
         this.position[2] = this.player.position[2] - dz;
     }
+
+    sign(x) {
+        if (x > 0) {
+            return 1.0;
+        } else if (x < 0) {
+            return -1.0;
+        }
+        return 0;
+    }
+
+    translateClipPlane(plane, matrix) {
+        let normal = [plane[0], plane[1], plane[2], 0];
+        vec4.normalize(normal, normal);
+        let point = [normal[0] * plane[3], normal[1] * plane[3], normal[2] * plane[3], 1];
+
+        let transposeInvertMatrix = mat4.create();
+        mat4.invert(transposeInvertMatrix, matrix);
+        mat4.transpose(transposeInvertMatrix, transposeInvertMatrix);
+
+        vec4.transformMat4(point, point, matrix);
+        vec4.transformMat4(normal, normal, transposeInvertMatrix);
+
+        const xyz = [normal[0], normal[1], normal[2]];
+        vec4.normalize(xyz, xyz);
+        const d = point[0] * xyz[0] + point[1] * xyz[1] + point[2] * xyz[2];
+
+        return [xyz[0], xyz[1], xyz[2], d];
+    }
+
+    calculateProjectionAndViewMatrices(cameraPosition = null) {
+        const position = cameraPosition || this.position;
+
+        const view = MathUtil.createViewMatrix(
+            position, [this.pitch, this.yaw, this.roll]);
+        let projection;
+
+        if (this.clipPlane) {
+            projection = mat4.create();
+            mat4.copy(projection, this.projectionMatrix);
+            let p = this.translateClipPlane(this.clipPlane, view);
+            //p = [-0.9979565838860582, 0.046191432528962184, -0.04414849017158111, -8.465081607404844];
+            let q = vec4.create();
+            q[0] = (this.sign(p[0]) + projection[8]) / projection[0];
+            q[1] = (this.sign(p[1]) + projection[9]) / projection[5];
+            q[2] = -1.0;
+            q[3] = (1.0 + projection[10]) / projection[14];
+
+            let m4 = [projection[3], projection[7], projection[11], projection[15]];
+            let c = vec4.create();
+            vec4.scale(c, p, 2.0 / vec4.dot(p, q));
+
+            projection[2] = c[0] - m4[0];
+            projection[6] = c[1] - m4[1];
+            projection[10] = c[2] - m4[2];
+            projection[14] = c[3] - m4[3];
+        } else {
+            projection = this.projectionMatrix;
+        }
+
+        return {
+            projection,
+            view,
+        };
+    }
 }
 
 module.exports = {
     Camera,
 };
 
-},{"../Util/MathUtil.js":35}],2:[function(require,module,exports){
+},{"../Util/MathUtil.js":36}],2:[function(require,module,exports){
 // TexturedModel
 class Entity {
     constructor(texturedModel, position, rot, scale, textureIndex = 0) {
@@ -181,7 +253,7 @@ module.exports = {
     Player,
 };
 
-},{"../RenderEngine/Display.js":12,"../Util/MathUtil.js":35,"./Entity.js":2}],5:[function(require,module,exports){
+},{"../RenderEngine/Display.js":12,"../Util/MathUtil.js":36,"./Entity.js":2}],5:[function(require,module,exports){
 module.exports = function parse(params){
       var template = "#version 300 es \n" +" \n" +
 " \n" +" \n" +
@@ -278,7 +350,7 @@ module.exports = {
     cleanUp,
 };
 
-},{"../RenderEngine/Loader.js":14,"../Util/MathUtil.js":35,"./GUIShader.js":8}],8:[function(require,module,exports){
+},{"../RenderEngine/Loader.js":14,"../Util/MathUtil.js":36,"./GUIShader.js":8}],8:[function(require,module,exports){
 const ShaderProgram = require('../Shader/ShaderProgram.js');
 
 const VERTEX_SHADER = require('./GLSL/GUIVertexShader.c');
@@ -306,7 +378,7 @@ module.exports = {
     GUIShader,
 };
 
-},{"../Shader/ShaderProgram.js":22,"./GLSL/GUIFragmentShader.c":5,"./GLSL/GUIVertexShader.c":6}],9:[function(require,module,exports){
+},{"../Shader/ShaderProgram.js":23,"./GLSL/GUIFragmentShader.c":5,"./GLSL/GUIVertexShader.c":6}],9:[function(require,module,exports){
 class GUITexture {
     constructor(texture, position, scale) {
         this.texture = texture;
@@ -351,6 +423,35 @@ module.exports = {
 },{}],12:[function(require,module,exports){
 let lastFrameTime;
 
+function resizeCanvas(canvas) {
+    let displayWidth = canvas.clientWidth;
+    let displayHeight = canvas.clientHeight;
+
+    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+    }
+    gl.viewportWidth = canvas.width;
+    gl.viewportHeight = canvas.height;
+    createDisplay();
+}
+
+function initDisplay() {
+    const canvas = document.getElementById('canvas');
+    try {
+        window.gl = canvas.getContext('webgl2');
+    } catch (e) {
+        // TODO: show error
+    }
+
+    if (!window.gl) {
+        alert('Could not initialise WebGL, sorry :-( ');
+    }
+
+    window.addEventListener('resize', resizeCanvas.bind(this, canvas));
+    resizeCanvas(canvas);
+}
+
 function getCurrentTime() {
     return new Date().getTime();
 }
@@ -377,26 +478,28 @@ module.exports = {
     updateDisplay,
     closeDisplay,
     delta: undefined,
+    initDisplay,
 };
 const self = module.exports;
 
 },{}],13:[function(require,module,exports){
 const MathUtil = require('../Util/MathUtil.js');
 const Util = require('../Util/Util.js');
+const StaticShader = require('../Shader/StaticShader.js');
 
-let projectionMatrix;
 let shader;
 
-function initialize(_shader, _projectionMatrix) {
-    shader = _shader;
-    projectionMatrix = _projectionMatrix;
+function initialize(camera) {
+    shader = new StaticShader.StaticShader();
 
     shader.start();
-    shader.loadProjectionMatrix(projectionMatrix);
+    shader.loadProjectionMatrix(camera.projectionMatrix);
     shader.stop();
 }
 
-function render(texturedModelEntities) {
+function render(camera, lights, skyColor, texturedModelEntities) {
+    prepareRender(camera, lights, skyColor);
+
     texturedModelEntities.forEach((texturedModelEntitiesPair) => {
         const texturedModel = texturedModelEntitiesPair[0];
         const entities = texturedModelEntitiesPair[1];
@@ -409,6 +512,19 @@ function render(texturedModelEntities) {
         });
         unbindTexturedModel();
     });
+
+    stopRender();
+}
+
+function prepareRender(camera, lights, skyColor) {
+    shader.start();
+    shader.loadSkyColor(skyColor);
+    shader.loadLights(lights);
+    shader.loadCamera(camera);
+}
+
+function stopRender() {
+    shader.stop();
 }
 
 function preparedTexturedModel(texturedModel) {
@@ -448,12 +564,17 @@ function prepareInstance(entity) {
     shader.loadOffset(entity.getTextureXYOffset());
 }
 
+function cleanUp() {
+    shader.cleanUp();
+}
+
 module.exports = {
     initialize,
     render,
+    cleanUp,
 };
 
-},{"../Util/MathUtil.js":35,"../Util/Util.js":36}],14:[function(require,module,exports){
+},{"../Shader/StaticShader.js":24,"../Util/MathUtil.js":36,"../Util/Util.js":38}],14:[function(require,module,exports){
 const RawModel = require('../Model/RawModel.js');
 
 const vaos = [];
@@ -600,62 +721,44 @@ module.exports = {
 };
 
 },{"../Model/RawModel.js":10}],15:[function(require,module,exports){
-const StaticShader = require('../Shader/StaticShader.js');
 const EntityRenderer = require('./EntityRenderer.js');
-const TerrainShader = require('../Shader/TerrainShader.js');
 const TerrainRenderer = require('./TerrainRenderer.js');
 const SkyboxRenderer = require('../Skybox/SkyboxRenderer.js');
+const WaterRenderer = require('../Water/WaterRenderer.js');
 const Util = require('../Util/Util.js');
-
-let shader;
-let terrainShader;
 
 const texturedModelEntities = [];
 let texturedModelIndicesLookUp = {};
 
 const terrains = [];
-
-// ProjectionMatrix related
-const FOV = 70;
-const NEAR_PLANE = 0.1;
-const FAR_PLANE = 1000;
-const projectionMatrix = mat4.create();
-
 const skyColor = [0.5, 0.5, 0.5];
 
-function initialize() {
-    mat4.perspective(projectionMatrix, FOV, gl.viewportWidth / gl.viewportHeight, NEAR_PLANE, FAR_PLANE);
+function initialize(camera) {
     Util.enableCulling();
 
-    // Initialize Entity Renderer
-    shader = new StaticShader.StaticShader();
-    EntityRenderer.initialize(shader, projectionMatrix);
-
-    // Initialize Terrain Renderer
-    terrainShader = new TerrainShader.TerrainShader();
-    TerrainRenderer.initialize(terrainShader, projectionMatrix);
-
-    SkyboxRenderer.initialize(projectionMatrix);
+    EntityRenderer.initialize(camera);
+    TerrainRenderer.initialize(camera);
+    SkyboxRenderer.initialize(camera);
+    WaterRenderer.initialize(camera);
 }
 
-function render(lights, camera) {
+function renderScene(entities, terrain, lights, camera, waters) {
+    entities.forEach((entity) => { processEntity(entity); });
+    processTerrain(terrain);
+
+    render(lights, camera, waters);
+}
+
+function render(lights, camera, waters) {
     prepare();
 
-    shader.start();
-    shader.loadSkyColor(skyColor);
-    shader.loadLights(lights);
-    shader.loadViewMatrix(camera);
-    EntityRenderer.render(texturedModelEntities);
-    shader.stop();
-
-    terrainShader.start();
-    terrainShader.loadSkyColor(skyColor);
-    terrainShader.loadLights(lights);
-    terrainShader.loadViewMatrix(camera);
-    TerrainRenderer.render(terrains);
-    terrainShader.stop();
-
+    EntityRenderer.render(camera, lights, skyColor, texturedModelEntities);
+    TerrainRenderer.render(camera, lights, skyColor, terrains);
     SkyboxRenderer.render(camera, skyColor);
+
+    if (waters !== undefined) {
+        WaterRenderer.render(camera, waters);
+    }
 
     texturedModelEntities.length = 0;
     texturedModelIndicesLookUp = {};
@@ -680,9 +783,10 @@ function processTerrain(terrain) {
 }
 
 function cleanUp() {
-    shader.cleanUp();
-    terrainShader.cleanUp();
+    EntityRenderer.cleanUp();
+    TerrainRenderer.cleanUp();
     SkyboxRenderer.cleanUp();
+    WaterRenderer.cleanUp();
 }
 
 function prepare() {
@@ -697,9 +801,10 @@ module.exports = {
     processTerrain,
     cleanUp,
     initialize,
+    renderScene,
 };
 
-},{"../Shader/StaticShader.js":23,"../Shader/TerrainShader.js":24,"../Skybox/SkyboxRenderer.js":27,"../Util/Util.js":36,"./EntityRenderer.js":13,"./TerrainRenderer.js":17}],16:[function(require,module,exports){
+},{"../Skybox/SkyboxRenderer.js":28,"../Util/Util.js":38,"../Water/WaterRenderer.js":42,"./EntityRenderer.js":13,"./TerrainRenderer.js":17}],16:[function(require,module,exports){
 const Util = require('../Util/Util.js');
 const Loader = require('./Loader.js');
 
@@ -877,23 +982,24 @@ module.exports = {
     ModelData,
 };
 
-},{"../Util/Util.js":36,"./Loader.js":14}],17:[function(require,module,exports){
+},{"../Util/Util.js":38,"./Loader.js":14}],17:[function(require,module,exports){
 const MathUtil = require('../Util/MathUtil.js');
+const TerrainShader = require('../Shader/TerrainShader.js');
 
-let projectionMatrix;
 let shader;
 
-function initialize(_shader, _projectionMatrix) {
-    shader = _shader;
-    projectionMatrix = _projectionMatrix;
+function initialize(camera) {
+    shader = new TerrainShader.TerrainShader();
 
     shader.start();
-    shader.loadProjectionMatrix(projectionMatrix);
+    shader.loadProjectionMatrix(camera.projectionMatrix);
     shader.connectTextureUnits();
     shader.stop();
 }
 
-function render(terrains) {
+function render(camera, lights, skyColor, terrains) {
+    prepareRender(camera, lights, skyColor);
+
     terrains.forEach((terrain) => {
         prepareTerrain(terrain);
         loadModelMatrix(terrain);
@@ -903,6 +1009,18 @@ function render(terrains) {
 
         unbindTexturedModel(terrain);
     });
+    stopRender();
+}
+
+function prepareRender(camera, lights, skyColor) {
+    shader.start();
+    shader.loadSkyColor(skyColor);
+    shader.loadLights(lights);
+    shader.loadCamera(camera);
+}
+
+function stopRender() {
+    shader.stop();
 }
 
 function prepareTerrain(terrain) {
@@ -946,12 +1064,209 @@ function loadModelMatrix(terrain) {
     shader.loadTransMatrix(mvMatrix);
 }
 
+function cleanUp() {
+    shader.cleanUp();
+}
+
 module.exports = {
     initialize,
     render,
+    cleanUp,
 };
 
-},{"../Util/MathUtil.js":35}],18:[function(require,module,exports){
+},{"../Shader/TerrainShader.js":25,"../Util/MathUtil.js":36}],18:[function(require,module,exports){
+const Loader = require('../RenderEngine/Loader.js');
+const OBJLoader = require('../RenderEngine/OBJLoader.js');
+const ModelTexture = require('../Texture/ModelTexture.js');
+const TerrainTexture = require('../Texture/TerrainTexture.js');
+const HeightMap = require('../Terrain/HeightMap.js');
+
+const RESOURCE_FOLDER = 'res/';
+const MODEL_FOLDER = 'model/';
+const TEXTURE_FOLDER = 'texture/';
+const CUBEMAP_FOLDER = 'cubeMap/';
+
+const heightMapsToLoad = {
+    heightMap: ['heightmap.png'],
+    waterHeightMap: ['waterHeightMap.png'],
+};
+
+const terrainTexturesToLoad = {
+    grass: ['grass.png'],
+    rTexture: ['mud.png'],
+    gTexture: ['grassFlowers.png'],
+    bTexture: ['path.png'],
+    blendMap: ['blendMap.png'],
+    waterBlendMap: ['waterBlendMap.png'],
+};
+
+const texturesToLoad = {
+    person: ['playerTexture.png', { shineDamper: 10, reflectivity: 1.5 }],
+    tree: ['tree.png', {}],
+    grass: ['grassTexture.png', { hasTransparency: true, useFakeNormal: true }],
+    fern: ['fern2.png', { hasTransparency: true, numberOfRows: 2 }],
+    lamp: ['lamp.png', { useFakeNormal: true }],
+    pine: ['pine.png', {}],
+    heart: ['health.png', {}],
+};
+
+const modelsToLoad = {
+    tree: ['tree.obj'],
+    grass: ['grassModel.obj'],
+    fern: ['fern.obj'],
+    person: ['person.obj'],
+    lamp: ['lamp.obj'],
+    pine: ['pine.obj'],
+};
+
+const cubeMapsToLoad = {
+    day: [
+        'day/right.png',
+        'day/left.png',
+        'day/bottom.png',
+        'day/top.png',
+        'day/back.png',
+        'day/front.png',
+    ],
+    night: [
+        'night/nightRight.png',
+        'night/nightLeft.png',
+        'night/nightBottom.png',
+        'night/nightTop.png',
+        'night/nightBack.png',
+        'night/nightFront.png',
+    ],
+};
+
+const resourceMeta = {
+    textures: [texturesToLoad, loadTextures],
+    models: [modelsToLoad, loadModels],
+    heightMaps: [heightMapsToLoad, loadHeightMaps],
+    terrainTextures: [terrainTexturesToLoad, loadTerrainTextures],
+    cubeMaps: [cubeMapsToLoad, loadCubeMaps],
+};
+
+const resource = {
+    textures: {},
+    models: {},
+    texturedModels: {},
+    heightMaps: {},
+    terrainTextures: {},
+    cubeMaps: {},
+};
+
+function isLoadCompleted(count, onload) {
+    const minusOne = count - 1;
+    if (minusOne <= 0) {
+        onload();
+    }
+    return minusOne;
+}
+
+function loadTextures(key, res, onload) {
+    const FILE_PREFIX = RESOURCE_FOLDER + TEXTURE_FOLDER;
+    let numberOfResourcesToLoad = Object.keys(res).length;
+
+    Object.keys(res).forEach((name) => {
+        const value = res[name];
+        const path = FILE_PREFIX + value[0];
+        const fields = value[1];
+
+        Loader.loadTexture(path, (t) => {
+            const texture = new ModelTexture.ModelTexture(t);
+            Object.assign(texture, fields);
+            resource[key][name] = texture;
+
+            numberOfResourcesToLoad = isLoadCompleted(numberOfResourcesToLoad, onload);
+        });
+    });
+}
+
+function loadModels(key, res, onload) {
+    const FILE_PREFIX = RESOURCE_FOLDER + MODEL_FOLDER;
+    let numberOfResourcesToLoad = Object.keys(res).length;
+
+    Object.keys(res).forEach((name) => {
+        const value = res[name];
+        const path = FILE_PREFIX + value[0];
+
+        OBJLoader.loadOBJModel(path, (m) => {
+            resource[key][name] = m;
+            numberOfResourcesToLoad = isLoadCompleted(numberOfResourcesToLoad, onload);
+        });
+    });
+}
+
+function loadHeightMaps(key, res, onload) {
+    const FILE_PREFIX = RESOURCE_FOLDER + TEXTURE_FOLDER;
+    let numberOfResourcesToLoad = Object.keys(res).length;
+
+    Object.keys(res).forEach((name) => {
+        const value = res[name];
+        const path = FILE_PREFIX + value[0];
+
+        const image = new Image();
+        image.src = path;
+        image.onload = () => {
+            resource[key][name] = new HeightMap.HeightMap(image);
+            numberOfResourcesToLoad = isLoadCompleted(numberOfResourcesToLoad, onload);
+        };
+    });
+}
+
+function loadTerrainTextures(key, res, onload) {
+    const FILE_PREFIX = RESOURCE_FOLDER + TEXTURE_FOLDER;
+    let numberOfResourcesToLoad = Object.keys(res).length;
+
+    Object.keys(res).forEach((name) => {
+        const value = res[name];
+        const path = FILE_PREFIX + value[0];
+
+        Loader.loadTexture(path, (t) => {
+            const texture = new TerrainTexture.TerrainTexture(t);
+            resource[key][name] = texture;
+
+            numberOfResourcesToLoad = isLoadCompleted(numberOfResourcesToLoad, onload);
+        });
+    });
+}
+
+function loadCubeMaps(key, res, onload) {
+    const FILE_PREFIX = RESOURCE_FOLDER + CUBEMAP_FOLDER;
+    let numberOfResourcesToLoad = Object.keys(res).length;
+
+    Object.keys(res).forEach((name) => {
+        const value = res[name];
+        const paths = value.map(path => FILE_PREFIX + path);
+
+        Loader.loadCubeMap(paths, (t) => {
+            resource[key][name] = t;
+
+            numberOfResourcesToLoad = isLoadCompleted(numberOfResourcesToLoad, onload);
+        });
+    });
+}
+
+function loadAllResources(onload) {
+    let numberOfResourcesToLoad = Object.keys(resourceMeta).length;
+    Object.keys(resourceMeta).forEach((key) => {
+        const meta = resourceMeta[key];
+        const res = meta[0];
+        const func = meta[1];
+
+        func(key, res, () => {
+            console.log(key);
+            numberOfResourcesToLoad = isLoadCompleted(numberOfResourcesToLoad, onload);
+        });
+    });
+}
+
+module.exports = {
+    resource,
+    loadAllResources,
+};
+
+},{"../RenderEngine/Loader.js":14,"../RenderEngine/OBJLoader.js":16,"../Terrain/HeightMap.js":30,"../Texture/ModelTexture.js":32,"../Texture/TerrainTexture.js":33}],19:[function(require,module,exports){
 module.exports = function parse(params){
       var template = "#version 300 es \n" +" \n" +
 " \n" +" \n" +
@@ -1018,7 +1333,7 @@ module.exports = function parse(params){
       return template
     };
 
-},{}],19:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 module.exports = function parse(params){
       var template = "#version 300 es \n" +" \n" +
 " \n" +" \n" +
@@ -1094,7 +1409,7 @@ module.exports = function parse(params){
       return template
     };
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 module.exports = function parse(params){
       var template = "#version 300 es \n" +" \n" +
 "in vec3 position; \n" +" \n" +
@@ -1141,7 +1456,7 @@ module.exports = function parse(params){
       return template
     };
 
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 module.exports = function parse(params){
       var template = "#version 300 es \n" +" \n" +
 "in vec3 position; \n" +" \n" +
@@ -1197,7 +1512,7 @@ module.exports = function parse(params){
       return template
     };
 
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 class ShaderProgram {
     constructor(vertexShaderCode, fragmentShaderCode) {
         this.vertexShaderID = this.loadShader(vertexShaderCode, gl.VERTEX_SHADER);
@@ -1298,9 +1613,8 @@ module.exports = {
     ShaderProgram,
 };
 
-},{}],23:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 const ShaderProgram = require('./ShaderProgram.js');
-const MathUtil = require('../Util/MathUtil.js');
 const Const = require('../Util/Const.js');
 
 const VERTEX_SHADER = require('./GLSL/VertexShader.c');
@@ -1346,10 +1660,10 @@ class StaticShader extends ShaderProgram.ShaderProgram {
         this.loadMatrix(this.projectionMatrixLocation, matrix);
     }
 
-    loadViewMatrix(camera) {
-        const matrix = MathUtil.createViewMatrix(
-            camera.position, [camera.pitch, camera.yaw, camera.roll]);
-        this.loadMatrix(this.viewMatrixLocation, matrix);
+    loadCamera(camera) {
+        let { projection, view } = camera.calculateProjectionAndViewMatrices();
+        this.loadMatrix(this.projectionMatrixLocation, projection);
+        this.loadMatrix(this.viewMatrixLocation, view);
     }
 
     loadLights(lights) {
@@ -1392,7 +1706,7 @@ module.exports = {
     StaticShader,
 };
 
-},{"../Util/Const.js":34,"../Util/MathUtil.js":35,"./GLSL/FragmentShader.c":18,"./GLSL/VertexShader.c":21,"./ShaderProgram.js":22}],24:[function(require,module,exports){
+},{"../Util/Const.js":35,"./GLSL/FragmentShader.c":19,"./GLSL/VertexShader.c":22,"./ShaderProgram.js":23}],25:[function(require,module,exports){
 const ShaderProgram = require('./ShaderProgram.js');
 const MathUtil = require('../Util/MathUtil.js');
 const Const = require('../Util/Const.js');
@@ -1441,12 +1755,13 @@ class TerrainShader extends ShaderProgram.ShaderProgram {
 
     loadProjectionMatrix(matrix) {
         this.loadMatrix(this.projectionMatrixLocation, matrix);
+        console.log(matrix);
     }
 
-    loadViewMatrix(camera) {
-        const matrix = MathUtil.createViewMatrix(
-            camera.position, [camera.pitch, camera.yaw, camera.roll]);
-        this.loadMatrix(this.viewMatrixLocation, matrix);
+    loadCamera(camera) {
+        let { projection, view } = camera.calculateProjectionAndViewMatrices();
+        this.loadMatrix(this.projectionMatrixLocation, projection);
+        this.loadMatrix(this.viewMatrixLocation, view);
     }
 
     loadLights(lights) {
@@ -1485,7 +1800,7 @@ module.exports = {
     TerrainShader,
 };
 
-},{"../Util/Const.js":34,"../Util/MathUtil.js":35,"./GLSL/TerrainFragmentShader.c":19,"./GLSL/TerrainVertexShader.c":20,"./ShaderProgram.js":22}],25:[function(require,module,exports){
+},{"../Util/Const.js":35,"../Util/MathUtil.js":36,"./GLSL/TerrainFragmentShader.c":20,"./GLSL/TerrainVertexShader.c":21,"./ShaderProgram.js":23}],26:[function(require,module,exports){
 module.exports = function parse(params){
       var template = "#version 300 es \n" +" \n" +
 " \n" +" \n" +
@@ -1525,7 +1840,7 @@ module.exports = function parse(params){
       return template
     };
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 module.exports = function parse(params){
       var template = "#version 300 es \n" +" \n" +
 " \n" +" \n" +
@@ -1548,9 +1863,10 @@ module.exports = function parse(params){
       return template
     };
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 const Loader = require('../RenderEngine/Loader.js');
 const SkyboxShader = require('./SkyboxShader.js');
+const AsyncResource = require('../Resource/AsyncResource.js');
 
 const SIZE = 500.0;
 const VERTICES = [
@@ -1597,55 +1913,23 @@ const VERTICES = [
     SIZE, -SIZE, SIZE,
 ];
 
-const TEXTURE_FILES = [
-    'res/cubeMap/day/right.png',
-    'res/cubeMap/day/left.png',
-    'res/cubeMap/day/bottom.png',
-    'res/cubeMap/day/top.png',
-    'res/cubeMap/day/back.png',
-    'res/cubeMap/day/front.png',
-];
-
-const NIGHT_TEXTURE_FILES = [
-    'res/cubeMap/night/nightRight.png',
-    'res/cubeMap/night/nightLeft.png',
-    'res/cubeMap/night/nightBottom.png',
-    'res/cubeMap/night/nightTop.png',
-    'res/cubeMap/night/nightBack.png',
-    'res/cubeMap/night/nightFront.png',
-];
-
 let cube;
-let texture;
-let nightTexture;
 let shader;
 
-function initialize(projectionMatrix) {
+function initialize(camera) {
     cube = Loader.loadPositionsToVAO(VERTICES, 3);
-    Loader.loadCubeMap(TEXTURE_FILES, (t) => {
-        texture = t;
-    });
-
-    Loader.loadCubeMap(NIGHT_TEXTURE_FILES, (t) => {
-        nightTexture = t;
-    });
-
     shader = new SkyboxShader.SkyboxShader();
 
     shader.start();
     shader.connectTextureUnits();
-    shader.loadProjectionMatrix(projectionMatrix);
+    shader.loadProjectionMatrix(camera.projectionMatrix);
     shader.stop();
 }
 
 function render(camera, fogColor) {
-    if (texture === undefined || nightTexture === undefined) {
-        return;
-    }
-
     shader.start();
 
-    shader.loadViewMatrix(camera);
+    shader.loadCamera(camera);
     shader.loadFogColor(fogColor);
 
     gl.bindVertexArray(cube.vaoID);
@@ -1667,10 +1951,10 @@ function cleanUp() {
 
 function bindTextures() {
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture); // texture is texture_id
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, AsyncResource.resource.cubeMaps.day); // texture is texture_id
 
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, nightTexture); // texture is texture_id
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, AsyncResource.resource.cubeMaps.night); // texture is texture_id
 
     shader.loadBlendFactor(0.5);
 }
@@ -1681,7 +1965,7 @@ module.exports = {
     cleanUp,
 };
 
-},{"../RenderEngine/Loader.js":14,"./SkyboxShader.js":28}],28:[function(require,module,exports){
+},{"../RenderEngine/Loader.js":14,"../Resource/AsyncResource.js":18,"./SkyboxShader.js":29}],29:[function(require,module,exports){
 const ShaderProgram = require('../Shader/ShaderProgram.js');
 const MathUtil = require('../Util/MathUtil.js');
 const Display = require('../RenderEngine/Display.js');
@@ -1715,12 +1999,11 @@ class SkyboxShader extends ShaderProgram.ShaderProgram {
         this.loadMatrix(this.projectionMatrixLocation, matrix);
     }
 
-    loadViewMatrix(camera) {
-        const matrix = MathUtil.createViewMatrix(
-            [0, 0, 0], [camera.pitch, camera.yaw, camera.roll]);
+    loadCamera(camera) {
+        let { projection, view } = camera.calculateProjectionAndViewMatrices([0, 0, 0]);
         this.rotation += Display.delta * ROTATION_SPEED;
-        mat4.rotateY(matrix, matrix, this.rotation);
-        this.loadMatrix(this.viewMatrixLocation, matrix);
+        mat4.rotateY(view, view, this.rotation);
+        this.loadMatrix(this.viewMatrixLocation, view);
     }
 
     loadFogColor(color) {
@@ -1741,7 +2024,7 @@ module.exports = {
     SkyboxShader,
 };
 
-},{"../RenderEngine/Display.js":12,"../Shader/ShaderProgram.js":22,"../Util/MathUtil.js":35,"./GLSL/SkyboxFragmentShader.c":25,"./GLSL/SkyboxVertexShader.c":26}],29:[function(require,module,exports){
+},{"../RenderEngine/Display.js":12,"../Shader/ShaderProgram.js":23,"../Util/MathUtil.js":36,"./GLSL/SkyboxFragmentShader.c":26,"./GLSL/SkyboxVertexShader.c":27}],30:[function(require,module,exports){
 const MAX_PIXEL_COLOR = 256 * 256 * 256;
 const MAX_HEIGHT = 40;
 
@@ -1792,11 +2075,11 @@ module.exports = {
     HeightMap,
 };
 
-},{}],30:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 const Loader = require('../RenderEngine/Loader.js');
 const MathUtil = require('../Util/MathUtil.js');
 
-const SIZE = 800;
+const SIZE = 150;
 let vertexCount;
 let gridSquareSize;
 
@@ -1901,7 +2184,7 @@ module.exports = {
     Terrain,
 };
 
-},{"../RenderEngine/Loader.js":14,"../Util/MathUtil.js":35}],31:[function(require,module,exports){
+},{"../RenderEngine/Loader.js":14,"../Util/MathUtil.js":36}],32:[function(require,module,exports){
 let serialNumber = 0;
 
 class ModelTexture {
@@ -1925,7 +2208,7 @@ module.exports = {
     ModelTexture,
 };
 
-},{}],32:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 class TerrainTexture {
     constructor(id) {
         this.textureID = id;
@@ -1936,7 +2219,7 @@ module.exports = {
     TerrainTexture,
 };
 
-},{}],33:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 class TerrainTexturePack {
     constructor(backgroundTexture, rTexture, gTexture, bTexture) {
         this.backgroundTexture = backgroundTexture;
@@ -1950,12 +2233,12 @@ module.exports = {
     TerrainTexturePack,
 };
 
-},{}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 module.exports = {
     MAX_LIGHTS: 4,
 };
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 function toQuaternion(rotation) {
     let q = quat.create();
     quat.rotateX(q, q, rotation[0]);
@@ -2020,7 +2303,72 @@ module.exports = {
     barryCentric,
 };
 
-},{}],36:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
+const MathUtil = require('../Util/MathUtil.js');
+
+let camera;
+let viewMatrix;
+let projectionMatrix;
+
+function initialize(_camera) {
+    camera = _camera;
+    projectionMatrix = _camera.projectionMatrix;
+    viewMatrix = MathUtil.createViewMatrix(
+        camera.position, [camera.pitch, camera.yaw, camera.roll]);
+}
+
+function update() {
+    viewMatrix = MathUtil.createViewMatrix(
+        camera.position, [camera.pitch, camera.yaw, camera.roll]);
+    self.currentRay = calculateMouseRay();
+}
+
+function calculateMouseRay() {
+    const mouseX = mouseInfo.position[0];
+    const mouseY = mouseInfo.position[1];
+
+    const normalizedDeviceCoords = getNormalizedDeviceCoords(mouseX, mouseY);
+    const clipCoords = [normalizedDeviceCoords[0], normalizedDeviceCoords[1], -1, 1];
+    const eyeCoords = toEyeCoords(clipCoords);
+    const worldRay = toWorldCoords(eyeCoords);
+
+    return worldRay;
+}
+
+function getNormalizedDeviceCoords(mouseX, mouseY) {
+    const x = ((2 * mouseX) / gl.viewportWidth) - 1;
+    const y = 1 - ((2 * mouseY) / gl.viewportHeight);
+    return [x, y];
+}
+
+function toEyeCoords(clipCoords) {
+    let invertedProjection = mat4.create();
+    mat4.invert(invertedProjection, projectionMatrix);
+    let eyeCoords = vec4.create();
+    vec4.transformMat4(eyeCoords, clipCoords, invertedProjection);
+
+    return [eyeCoords[0], eyeCoords[1], -1.0, 0.0];
+}
+
+function toWorldCoords(eyeCoords) {
+    let invertedView = mat4.create();
+    mat4.invert(invertedView, viewMatrix);
+    let worldCoords = vec4.create();
+    vec4.transformMat4(worldCoords, eyeCoords, invertedView);
+    let mouseRay = [worldCoords[0], worldCoords[1], worldCoords[2]];
+    vec3.normalize(mouseRay, mouseRay);
+    return mouseRay;
+}
+
+module.exports = {
+    initialize,
+    currentRay: undefined,
+    update,
+
+};
+const self = module.exports;
+
+},{"../Util/MathUtil.js":36}],38:[function(require,module,exports){
 const currentlyPressedKeys = {};
 function handleKeyUp(event) {
     currentlyPressedKeys[event.keyCode] = false;
@@ -2035,7 +2383,7 @@ const mouseInfo = {
     buttonLastPos: [[0, 0], [0, 0], [0, 0]],
     buttonDelta: [[0, 0], [0, 0], [0, 0]],
     wheelDelta: 0,
-
+    position: [0, 0],
     mouseWheelCallback: undefined,
 };
 
@@ -2056,6 +2404,7 @@ function handleMouseMove(event) {
         mouseInfo.buttonLastPos[i][0] = event.clientX;
         mouseInfo.buttonLastPos[i][1] = event.clientY;
     });
+    mouseInfo.position = [event.clientX, event.clientY];
 }
 
 function handeMouseWheel(event) {
@@ -2077,20 +2426,6 @@ function disableCulling() {
 
 function degToRad(degrees) {
     return degrees * Math.PI / 180;
-}
-
-function initGL(canvas) {
-    try {
-        window.gl = canvas.getContext('webgl2');
-        window.gl.viewportWidth = canvas.width;
-        window.gl.viewportHeight = canvas.height;
-    } catch (e) {
-        // TODO: show error
-    }
-
-    if (!window.gl) {
-        alert('Could not initialise WebGL, sorry :-( ');
-    }
 }
 
 function initKeyboard() {
@@ -2126,7 +2461,6 @@ function Ajax() {
 
 module.exports = {
     degToRad,
-    initGL,
     initKeyboard,
     initMouse,
     Ajax,
@@ -2134,16 +2468,275 @@ module.exports = {
     disableCulling,
 };
 
-},{}],37:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
+module.exports = function parse(params){
+      var template = "#version 300 es \n" +" \n" +
+" \n" +" \n" +
+"precision mediump float; \n" +" \n" +
+" \n" +" \n" +
+"in vec2 textureCoords; \n" +" \n" +
+"out vec4 out_Color; \n" +" \n" +
+" \n" +" \n" +
+"void main(void) { \n" +" \n" +
+"	out_Color = vec4(0.0, 0.0, 1.0, 1.0); \n" +" \n" +
+"} \n" +" \n" +
+" \n" 
+      params = params || {}
+      for(var key in params) {
+        var matcher = new RegExp("{{"+key+"}}","g")
+        template = template.replace(matcher, params[key])
+      }
+      return template
+    };
+
+},{}],40:[function(require,module,exports){
+module.exports = function parse(params){
+      var template = "#version 300 es \n" +" \n" +
+" \n" +" \n" +
+"in vec2 position; \n" +" \n" +
+" \n" +" \n" +
+"out vec2 textureCoords; \n" +" \n" +
+" \n" +" \n" +
+"uniform mat4 projectionMatrix; \n" +" \n" +
+"uniform mat4 viewMatrix; \n" +" \n" +
+"uniform mat4 modelMatrix; \n" +" \n" +
+" \n" +" \n" +
+" \n" +" \n" +
+"void main(void) { \n" +" \n" +
+"	gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position.x, 0.0, position.y, 1.0); \n" +" \n" +
+"	textureCoords = vec2(position.x/2.0 + 0.5, position.y/2.0 + 0.5); \n" +" \n" +
+"} \n" +" \n" +
+" \n" 
+      params = params || {}
+      for(var key in params) {
+        var matcher = new RegExp("{{"+key+"}}","g")
+        template = template.replace(matcher, params[key])
+      }
+      return template
+    };
+
+},{}],41:[function(require,module,exports){
+const REFLECTION_WIDTH = 320;
+const REFLECTION_HEIGHT = 180;
+
+const REFRACTION_WIDTH = 1280;
+const REFRACTION_HEIGHT = 720;
+
+class WaterFrameBuffers {
+    constructor() {
+        this.reflection = new FrameBuffer(REFLECTION_WIDTH, REFLECTION_HEIGHT, false);
+        this.refraction = new FrameBuffer(REFRACTION_WIDTH, REFRACTION_HEIGHT, true);
+    }
+
+    cleanUp() {
+        this.reflection.cleanUp();
+        this.refraction.cleanUp();
+    }
+}
+
+class FrameBuffer {
+    constructor(width, height, useDepthTexture) {
+        this.width = width;
+        this.height = height;
+
+        this.createFrameBuffer();
+        this.createTextureAttachment();
+
+        if (useDepthTexture) {
+            this.createDepthTextureAttachment();
+        } else {
+            this.createDepthBufferAttachment();
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    createFrameBuffer() {
+        this.frameBufferID = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBufferID);
+        gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+    }
+
+    createTextureAttachment() {
+        this.textureID = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.textureID);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.width, this.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.textureID, 0);
+
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    createDepthTextureAttachment() {
+        this.depthTextureID = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.depthTextureID);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT16, this.width, this.height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.depthTextureID, 0);
+
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    createDepthBufferAttachment() {
+        this.depthBufferID = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, this.depthBufferID);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, this.width, this.height);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.depthBufferID);
+
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    }
+
+    unbindFrameBuffer() {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    }
+
+    bindFrameBuffer() {
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBufferID);
+        gl.viewport(0, 0, this.width, this.height);
+    }
+
+    cleanUp() {
+        gl.deleteFramebuffer(this.frameBufferID);
+        gl.deleteTexture(this.textureID);
+
+        if (this.depthTextureID) {
+            gl.deleteTexture(this.depthTextureID);
+        }
+
+        if (this.depthBufferID) {
+            gl.deleteRenderBuffer(this.depthBufferID);
+        }
+    }
+}
+
+module.exports = {
+    WaterFrameBuffers,
+};
+
+},{}],42:[function(require,module,exports){
+const Loader = require('../RenderEngine/Loader.js');
+const WaterShader = require('./WaterShader.js');
+const MathUtil = require('../Util/MathUtil.js');
+
+let shader;
+let quad;
+
+function initialize(camera) {
+    shader = new WaterShader.WaterShader();
+    shader.start();
+    shader.loadProjectionMatrix(camera.projectionMatrix);
+    shader.stop();
+
+    quad = Loader.loadPositionsToVAO([-1, -1, -1, 1, 1, -1, 1, -1, -1, 1, 1, 1], 2);
+}
+
+function render(camera, waters) {
+    prepareRender(camera);
+
+    waters.forEach((water) => {
+        const modelMatrix = MathUtil.createTransformationMatrix(
+            [water.x, water.height, water.z], [0, 0, 0], [water.tile_size, water.tile_size, water.tile_size],
+        );
+        shader.loadModelMatrix(modelMatrix);
+        gl.drawArrays(gl.TRIANGLES, 0, quad.vertexCount);
+    });
+
+    stopRender();
+}
+
+function prepareRender(camera) {
+    shader.start();
+    shader.loadCamera(camera);
+    gl.bindVertexArray(quad.vaoID);
+    gl.enableVertexAttribArray(0);
+}
+
+function stopRender() {
+    gl.disableVertexAttribArray(0);
+    gl.bindVertexArray(null);
+    shader.stop();
+}
+
+function cleanUp() {
+    shader.cleanUp();
+}
+
+module.exports = {
+    initialize,
+    render,
+    cleanUp,
+};
+
+},{"../RenderEngine/Loader.js":14,"../Util/MathUtil.js":36,"./WaterShader.js":43}],43:[function(require,module,exports){
+const ShaderProgram = require('../Shader/ShaderProgram.js');
+const MathUtil = require('../Util/MathUtil.js');
+
+const VERTEX_SHADER = require('./GLSL/WaterVertexShader.c');
+const FRAGMENT_SHADER = require('./GLSL/WaterFragmentShader.c');
+
+class WaterShader extends ShaderProgram.ShaderProgram {
+    constructor() {
+        super(VERTEX_SHADER, FRAGMENT_SHADER);
+    }
+
+    bindAttributes() {
+        this.bindAttribute(0, 'position');
+    }
+
+    getAllUniformLocations() {
+        this.projectionMatrixLocation = this.getUniformLocation('projectionMatrix');
+        this.viewMatrixLocation = this.getUniformLocation('viewMatrix');
+        this.modelMatrixLocation = this.getUniformLocation('modelMatrix');
+    }
+
+    loadProjectionMatrix(matrix) {
+        this.loadMatrix(this.projectionMatrixLocation, matrix);
+    }
+
+    loadCamera(camera) {
+        let { projection, view } = camera.calculateProjectionAndViewMatrices();
+        this.loadMatrix(this.projectionMatrixLocation, projection);
+        this.loadMatrix(this.viewMatrixLocation, view);
+    }
+
+    loadModelMatrix(matrix) {
+        this.loadMatrix(this.modelMatrixLocation, matrix);
+    }
+}
+
+module.exports = {
+    WaterShader,
+};
+
+},{"../Shader/ShaderProgram.js":23,"../Util/MathUtil.js":36,"./GLSL/WaterFragmentShader.c":39,"./GLSL/WaterVertexShader.c":40}],44:[function(require,module,exports){
+class WaterTile {
+    constructor(x, z, height) {
+        this.x = x;
+        this.z = z;
+        this.height = height;
+        this.tile_size = 60;
+    }
+}
+
+module.exports = {
+    WaterTile,
+};
+
+},{}],45:[function(require,module,exports){
 const Display = require('./RenderEngine/Display.js');
 const Loader = require('./RenderEngine/Loader.js');
+
 const MasterRenderer = require('./RenderEngine/MasterRenderer.js');
-const OBJLoader = require('./RenderEngine/OBJLoader.js');
 
 const Util = require('./Util/Util.js');
+const MousePicker = require('./Util/MousePicker.js');
 
-const ModelTexture = require('./Texture/ModelTexture.js');
-const TerrainTexture = require('./Texture/TerrainTexture.js');
 const TerrainTexturePack = require('./Texture/TerrainTexturePack.js');
 
 const TexturedModel = require('./Model/TexturedModel.js');
@@ -2154,200 +2747,99 @@ const Light = require('./Entities/Light.js');
 const Player = require('./Entities/Player.js');
 
 const Terrain = require('./Terrain/Terrain.js');
-const HeightMap = require('./Terrain/HeightMap.js');
 
 const GUITexture = require('./GUI/GUITexture.js');
 const GUIRenderer = require('./GUI/GUIRenderer.js');
 
+const AsyncResource = require('./Resource/AsyncResource.js');
+
+const WaterTile = require('./Water/WaterTile.js');
+const WaterFrameBuffers = require('./Water/WaterFrameBuffers.js');
 
 let player;
 let entities;
 let camera;
 let lights;
-
-const textures = {};
-const models = {};
+let fbos;
 
 let terrain;
-let heightMap;
-
 let guis;
-
-let numResRequiredToLoad = 17;
+let waters;
 
 window.onload = main;
 
 function main() {
     // initialize WEBGL
-    const canvas = document.getElementById('canvas');
-    Util.initGL(canvas);
-    Display.createDisplay();
+    Display.initDisplay();
 
     Util.initKeyboard();
     Util.initMouse();
 
-    window.addEventListener('resize', () => { // resize GL on resize
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        Util.initGL(canvas);
-        Display.createDisplay();
-    });
-
-    // Load shaders
-    MasterRenderer.initialize();
-    GUIRenderer.initialize();
-
-    // Load graphics
-    OBJLoader.loadOBJModel('res/tree.obj', (m) => {
-        models.treeModel = m;
-        finishedLoadingItem();
-    });
-
-    OBJLoader.loadOBJModel('res/grassModel.obj', (m) => {
-        models.grassModel = m;
-        finishedLoadingItem();
-    });
-
-    OBJLoader.loadOBJModel('res/fern.obj', (m) => {
-        models.fernModel = m;
-        finishedLoadingItem();
-    });
-
-    OBJLoader.loadOBJModel('res/person.obj', (m) => {
-        models.playerModel = m;
-        finishedLoadingItem();
-    });
-
-    OBJLoader.loadOBJModel('res/lamp.obj', (m) => {
-        models.lampModel = m;
-        finishedLoadingItem();
-    });
-
-    const heightMapImage = new Image();
-    heightMapImage.src = 'res/heightmap.png';
-    heightMapImage.onload = () => {
-        heightMap = new HeightMap.HeightMap(heightMapImage);
-        finishedLoadingItem();
-    };
-
-    Loader.loadTexture('res/playerTexture.png', (t) => {
-        textures.playerTexture = new ModelTexture.ModelTexture(t);
-        textures.playerTexture.shineDamper = 10;
-        textures.playerTexture.reflectivity = 1.5;
-        finishedLoadingItem();
-    });
-
-    Loader.loadTexture('res/tree.png', (t) => {
-        textures.treeTexture = new ModelTexture.ModelTexture(t);
-        finishedLoadingItem();
-    });
-
-    Loader.loadTexture('res/grassTexture.png', (t) => {
-        textures.grassTexture = new ModelTexture.ModelTexture(t);
-        textures.grassTexture.hasTransparency = true;
-        textures.grassTexture.useFakeNormal = true;
-        finishedLoadingItem();
-    });
-
-    Loader.loadTexture('res/fern2.png', (t) => {
-        textures.fernTexture = new ModelTexture.ModelTexture(t);
-        textures.fernTexture.hasTransparency = true;
-        textures.fernTexture.numberOfRows = 2;
-        finishedLoadingItem();
-    });
-
-    Loader.loadTexture('res/grass.png', (t) => {
-        textures.backgroundTexture = new TerrainTexture.TerrainTexture(t);
-        finishedLoadingItem();
-    });
-
-    Loader.loadTexture('res/mud.png', (t) => {
-        textures.rTexture = new TerrainTexture.TerrainTexture(t);
-        finishedLoadingItem();
-    });
-
-    Loader.loadTexture('res/grassFlowers.png', (t) => {
-        textures.gTexture = new TerrainTexture.TerrainTexture(t);
-        finishedLoadingItem();
-    });
-
-    Loader.loadTexture('res/path.png', (t) => {
-        textures.bTexture = new TerrainTexture.TerrainTexture(t);
-        finishedLoadingItem();
-    });
-
-    Loader.loadTexture('res/blendMap.png', (t) => {
-        textures.blendMap = new TerrainTexture.TerrainTexture(t);
-        finishedLoadingItem();
-    });
-
-    Loader.loadTexture('res/lamp.png', (t) => {
-        textures.lampTexture = new ModelTexture.ModelTexture(t);
-        textures.lampTexture.useFakeNormal = true;
-        finishedLoadingItem();
-    });
-
-    guis = [];
-    Loader.loadTexture('res/health.png', (t) => {
-        const guiTexture = new ModelTexture.ModelTexture(t);
-        const gui = new GUITexture.GUITexture(guiTexture, [-0.6, 0.8], [0.25, 0.25]);
-        guis.push(gui);
-        finishedLoadingItem();
-    });
-}
-
-function finishedLoadingItem() {
-    numResRequiredToLoad -= 1;
-    if (numResRequiredToLoad === 0) {
+    AsyncResource.loadAllResources(() => {
         allResLoaded();
-    }
+    });
 }
-
 
 function allResLoaded() {
-     const treeTexturedModel = new TexturedModel.TexturedModel(models.treeModel, textures.treeTexture);
-     const grassTexturedModel = new TexturedModel.TexturedModel(models.grassModel, textures.grassTexture);
-     const fernTexturedModel = new TexturedModel.TexturedModel(models.fernModel, textures.fernTexture);
-     const lampTexturedModel = new TexturedModel.TexturedModel(models.lampModel, textures.lampTexture);
+    const resource = AsyncResource.resource;
+    const models = resource.models;
+    const textures = resource.textures;
+    const terrainTextures = resource.terrainTextures;
 
-    player = new Player.Player(
-        new TexturedModel.TexturedModel(models.playerModel, textures.playerTexture), [0, 0, 0], [0, 0, 0], [0.3, 0.3, 0.3]);
+    const tree = new TexturedModel.TexturedModel(models.tree, textures.tree);
+    const grass = new TexturedModel.TexturedModel(models.grass, textures.grass);
+    const fern = new TexturedModel.TexturedModel(models.fern, textures.fern);
+    const lamp = new TexturedModel.TexturedModel(models.lamp, textures.lamp);
+    const person = new TexturedModel.TexturedModel(models.person, textures.person);
+
+    player = new Player.Player(person, [0, 0, 0], [0, 0, 0], [0.3, 0.3, 0.3]);
     camera = new Camera.Camera(player);
 
+    // Load shaders
+    MasterRenderer.initialize(camera);
+    GUIRenderer.initialize();
+    MousePicker.initialize(camera);
+
      const texturePack = new TerrainTexturePack.TerrainTexturePack(
-        textures.backgroundTexture, textures.rTexture, textures.gTexture, textures.bTexture);
-    terrain = new Terrain.Terrain(0, -1, texturePack, textures.blendMap, heightMap);
+        terrainTextures.grass, terrainTextures.rTexture, terrainTextures.gTexture, terrainTextures.bTexture);
+    terrain = new Terrain.Terrain(0, -1, texturePack, terrainTextures.waterBlendMap, resource.heightMaps.waterHeightMap);
 
     // Load Entities
-    entities = [];
+    entities = [player];
     for (let i = 0; i < 500; i++) {
         let x = Math.random() * 800;
         let z = Math.random() * -600;
         let y = terrain.getTerrainHeight(x, z);
-        entities.push(new Entity.Entity(treeTexturedModel, [x, y, z], [0, 0, 0], [3, 3, 3]));
+        entities.push(new Entity.Entity(tree, [x, y, z], [0, 0, 0], [3, 3, 3]));
 
         x = Math.random() * 800;
         z = Math.random() * -600;
         y = terrain.getTerrainHeight(x, z);
-        entities.push(new Entity.Entity(grassTexturedModel, [x, y, z], [0, 0, 0], [1, 1, 1]));
+        entities.push(new Entity.Entity(grass, [x, y, z], [0, 0, 0], [1, 1, 1]));
 
         x = Math.random() * 800;
         z = Math.random() * -600;
         y = terrain.getTerrainHeight(x, z);
-        entities.push(new Entity.Entity(fernTexturedModel, [x, y, z], [0, 0, 0], [0.6, 0.6, 0.6], Math.floor(Math.random() * 4)));
+        entities.push(new Entity.Entity(fern, [x, y, z], [0, 0, 0], [0.6, 0.6, 0.6], Math.floor(Math.random() * 4)));
     }
 
     lights = [
-        new Light.Light([0, 1000, -7000], [0.4, 0.4, 0.4]),
-        new Light.Light([185, 10, -293], [2, 0, 0], [1, 0.01, 0.002]),
-        new Light.Light([370, 17, -300], [0, 2, 0], [1, 0.01, 0.002]),
-        new Light.Light([293, 7, -305], [0, 0, 2], [1, 0.01, 0.002]),
+        new Light.Light([0, 1000, -7000], [0.9, 0.9, 0.9]),
+        // new Light.Light([185, 10, -293], [2, 0, 0], [1, 0.01, 0.002]),
+        // new Light.Light([370, 17, -300], [0, 2, 0], [1, 0.01, 0.002]),
+        // new Light.Light([293, 7, -305], [0, 0, 2], [1, 0.01, 0.002]),
     ];
-    entities.push(new Entity.Entity(lampTexturedModel, [185, -4.7, -293], [0, 0, 0], [1, 1, 1]));
-    entities.push(new Entity.Entity(lampTexturedModel, [370, 4.2, -300], [0, 0, 0], [1, 1, 1]));
-    entities.push(new Entity.Entity(lampTexturedModel, [293, -6.8, -305], [0, 0, 0], [1, 1, 1]));
+    // entities.push(new Entity.Entity(lamp, [185, -4.7, -293], [0, 0, 0], [1, 1, 1]));
+    // entities.push(new Entity.Entity(lamp, [370, 4.2, -300], [0, 0, 0], [1, 1, 1]));
+    // entities.push(new Entity.Entity(lamp, [293, -6.8, -305], [0, 0, 0], [1, 1, 1]));
 
+    fbos = new WaterFrameBuffers.WaterFrameBuffers();
+    guis = [
+        new GUITexture.GUITexture(textures.heart, [-0.6, 0.8], [0.25, 0.25]),
+        new GUITexture.GUITexture(fbos.reflection, [0.75, 0.75], [0.25, 0.25]),
+    ];
+
+    waters = [new WaterTile.WaterTile(75, -75, 0)];
     tick();
 }
 
@@ -2363,12 +2855,13 @@ function tick() {
     camera.move();
     // camera.position = [player.position[0] - 20, player.position[1] + 20, player.position[2] + 60];
     player.move(terrain);
+    MousePicker.update();
 
-    MasterRenderer.processEntity(player);
-    entities.forEach((entity) => { MasterRenderer.processEntity(entity); });
-    MasterRenderer.processTerrain(terrain);
-    MasterRenderer.render(lights, camera);
+    fbos.reflection.bindFrameBuffer();
+    MasterRenderer.renderScene(entities, terrain, lights, camera);
+    fbos.reflection.unbindFrameBuffer();
 
+    MasterRenderer.renderScene(entities, terrain, lights, camera, waters);
     GUIRenderer.render(guis);
 }
 
@@ -2376,7 +2869,8 @@ function end() {
     MasterRenderer.cleanUp();
     GUIRenderer.cleanUp();
     Loader.cleanUp();
+    fbos.cleanUp();
     Display.closeDisplay();
 }
 
-},{"./Entities/Camera.js":1,"./Entities/Entity.js":2,"./Entities/Light.js":3,"./Entities/Player.js":4,"./GUI/GUIRenderer.js":7,"./GUI/GUITexture.js":9,"./Model/TexturedModel.js":11,"./RenderEngine/Display.js":12,"./RenderEngine/Loader.js":14,"./RenderEngine/MasterRenderer.js":15,"./RenderEngine/OBJLoader.js":16,"./Terrain/HeightMap.js":29,"./Terrain/Terrain.js":30,"./Texture/ModelTexture.js":31,"./Texture/TerrainTexture.js":32,"./Texture/TerrainTexturePack.js":33,"./Util/Util.js":36}]},{},[37]);
+},{"./Entities/Camera.js":1,"./Entities/Entity.js":2,"./Entities/Light.js":3,"./Entities/Player.js":4,"./GUI/GUIRenderer.js":7,"./GUI/GUITexture.js":9,"./Model/TexturedModel.js":11,"./RenderEngine/Display.js":12,"./RenderEngine/Loader.js":14,"./RenderEngine/MasterRenderer.js":15,"./Resource/AsyncResource.js":18,"./Terrain/Terrain.js":31,"./Texture/TerrainTexturePack.js":34,"./Util/MousePicker.js":37,"./Util/Util.js":38,"./Water/WaterFrameBuffers.js":41,"./Water/WaterTile.js":44}]},{},[45]);

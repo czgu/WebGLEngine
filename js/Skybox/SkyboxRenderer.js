@@ -1,5 +1,6 @@
 const Loader = require('../RenderEngine/Loader.js');
 const SkyboxShader = require('./SkyboxShader.js');
+const AsyncResource = require('../Resource/AsyncResource.js');
 
 const SIZE = 500.0;
 const VERTICES = [
@@ -46,55 +47,23 @@ const VERTICES = [
     SIZE, -SIZE, SIZE,
 ];
 
-const TEXTURE_FILES = [
-    'res/cubeMap/day/right.png',
-    'res/cubeMap/day/left.png',
-    'res/cubeMap/day/bottom.png',
-    'res/cubeMap/day/top.png',
-    'res/cubeMap/day/back.png',
-    'res/cubeMap/day/front.png',
-];
-
-const NIGHT_TEXTURE_FILES = [
-    'res/cubeMap/night/nightRight.png',
-    'res/cubeMap/night/nightLeft.png',
-    'res/cubeMap/night/nightBottom.png',
-    'res/cubeMap/night/nightTop.png',
-    'res/cubeMap/night/nightBack.png',
-    'res/cubeMap/night/nightFront.png',
-];
-
 let cube;
-let texture;
-let nightTexture;
 let shader;
 
-function initialize(projectionMatrix) {
+function initialize(camera) {
     cube = Loader.loadPositionsToVAO(VERTICES, 3);
-    Loader.loadCubeMap(TEXTURE_FILES, (t) => {
-        texture = t;
-    });
-
-    Loader.loadCubeMap(NIGHT_TEXTURE_FILES, (t) => {
-        nightTexture = t;
-    });
-
     shader = new SkyboxShader.SkyboxShader();
 
     shader.start();
     shader.connectTextureUnits();
-    shader.loadProjectionMatrix(projectionMatrix);
+    shader.loadProjectionMatrix(camera.projectionMatrix);
     shader.stop();
 }
 
 function render(camera, fogColor) {
-    if (texture === undefined || nightTexture === undefined) {
-        return;
-    }
-
     shader.start();
 
-    shader.loadViewMatrix(camera);
+    shader.loadCamera(camera);
     shader.loadFogColor(fogColor);
 
     gl.bindVertexArray(cube.vaoID);
@@ -116,10 +85,10 @@ function cleanUp() {
 
 function bindTextures() {
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture); // texture is texture_id
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, AsyncResource.resource.cubeMaps.day); // texture is texture_id
 
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, nightTexture); // texture is texture_id
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, AsyncResource.resource.cubeMaps.night); // texture is texture_id
 
     shader.loadBlendFactor(0.5);
 }

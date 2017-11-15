@@ -46,12 +46,13 @@ class TerrainShader extends ShaderProgram.ShaderProgram {
 
     loadProjectionMatrix(matrix) {
         this.loadMatrix(this.projectionMatrixLocation, matrix);
+        console.log(matrix);
     }
 
-    loadViewMatrix(camera) {
-        const matrix = MathUtil.createViewMatrix(
-            camera.position, [camera.pitch, camera.yaw, camera.roll]);
-        this.loadMatrix(this.viewMatrixLocation, matrix);
+    loadCamera(camera) {
+        let { projection, view } = camera.calculateProjectionAndViewMatrices();
+        this.loadMatrix(this.projectionMatrixLocation, projection);
+        this.loadMatrix(this.viewMatrixLocation, view);
     }
 
     loadLights(lights) {

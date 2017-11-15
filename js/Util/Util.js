@@ -12,7 +12,7 @@ const mouseInfo = {
     buttonLastPos: [[0, 0], [0, 0], [0, 0]],
     buttonDelta: [[0, 0], [0, 0], [0, 0]],
     wheelDelta: 0,
-
+    position: [0, 0],
     mouseWheelCallback: undefined,
 };
 
@@ -33,6 +33,7 @@ function handleMouseMove(event) {
         mouseInfo.buttonLastPos[i][0] = event.clientX;
         mouseInfo.buttonLastPos[i][1] = event.clientY;
     });
+    mouseInfo.position = [event.clientX, event.clientY];
 }
 
 function handeMouseWheel(event) {
@@ -54,20 +55,6 @@ function disableCulling() {
 
 function degToRad(degrees) {
     return degrees * Math.PI / 180;
-}
-
-function initGL(canvas) {
-    try {
-        window.gl = canvas.getContext('webgl2');
-        window.gl.viewportWidth = canvas.width;
-        window.gl.viewportHeight = canvas.height;
-    } catch (e) {
-        // TODO: show error
-    }
-
-    if (!window.gl) {
-        alert('Could not initialise WebGL, sorry :-( ');
-    }
 }
 
 function initKeyboard() {
@@ -103,7 +90,6 @@ function Ajax() {
 
 module.exports = {
     degToRad,
-    initGL,
     initKeyboard,
     initMouse,
     Ajax,

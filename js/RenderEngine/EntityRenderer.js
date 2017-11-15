@@ -1,19 +1,20 @@
 const MathUtil = require('../Util/MathUtil.js');
 const Util = require('../Util/Util.js');
+const StaticShader = require('../Shader/StaticShader.js');
 
-let projectionMatrix;
 let shader;
 
-function initialize(_shader, _projectionMatrix) {
-    shader = _shader;
-    projectionMatrix = _projectionMatrix;
+function initialize(camera) {
+    shader = new StaticShader.StaticShader();
 
     shader.start();
-    shader.loadProjectionMatrix(projectionMatrix);
+    shader.loadProjectionMatrix(camera.projectionMatrix);
     shader.stop();
 }
 
-function render(texturedModelEntities) {
+function render(camera, lights, skyColor, texturedModelEntities) {
+    prepareRender(camera, lights, skyColor);
+
     texturedModelEntities.forEach((texturedModelEntitiesPair) => {
         const texturedModel = texturedModelEntitiesPair[0];
         const entities = texturedModelEntitiesPair[1];
@@ -26,6 +27,19 @@ function render(texturedModelEntities) {
         });
         unbindTexturedModel();
     });
+
+    stopRender();
+}
+
+function prepareRender(camera, lights, skyColor) {
+    shader.start();
+    shader.loadSkyColor(skyColor);
+    shader.loadLights(lights);
+    shader.loadCamera(camera);
+}
+
+function stopRender() {
+    shader.stop();
 }
 
 function preparedTexturedModel(texturedModel) {
@@ -65,7 +79,12 @@ function prepareInstance(entity) {
     shader.loadOffset(entity.getTextureXYOffset());
 }
 
+function cleanUp() {
+    shader.cleanUp();
+}
+
 module.exports = {
     initialize,
     render,
+    cleanUp,
 };

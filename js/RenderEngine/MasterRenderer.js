@@ -1,59 +1,41 @@
-const StaticShader = require('../Shader/StaticShader.js');
 const EntityRenderer = require('./EntityRenderer.js');
-const TerrainShader = require('../Shader/TerrainShader.js');
 const TerrainRenderer = require('./TerrainRenderer.js');
 const SkyboxRenderer = require('../Skybox/SkyboxRenderer.js');
+const WaterRenderer = require('../Water/WaterRenderer.js');
 const Util = require('../Util/Util.js');
-
-let shader;
-let terrainShader;
 
 const texturedModelEntities = [];
 let texturedModelIndicesLookUp = {};
 
 const terrains = [];
-
-// ProjectionMatrix related
-const FOV = 70;
-const NEAR_PLANE = 0.1;
-const FAR_PLANE = 1000;
-const projectionMatrix = mat4.create();
-
 const skyColor = [0.5, 0.5, 0.5];
 
-function initialize() {
-    mat4.perspective(projectionMatrix, FOV, gl.viewportWidth / gl.viewportHeight, NEAR_PLANE, FAR_PLANE);
+function initialize(camera) {
     Util.enableCulling();
 
-    // Initialize Entity Renderer
-    shader = new StaticShader.StaticShader();
-    EntityRenderer.initialize(shader, projectionMatrix);
-
-    // Initialize Terrain Renderer
-    terrainShader = new TerrainShader.TerrainShader();
-    TerrainRenderer.initialize(terrainShader, projectionMatrix);
-
-    SkyboxRenderer.initialize(projectionMatrix);
+    EntityRenderer.initialize(camera);
+    TerrainRenderer.initialize(camera);
+    SkyboxRenderer.initialize(camera);
+    WaterRenderer.initialize(camera);
 }
 
-function render(lights, camera) {
+function renderScene(entities, terrain, lights, camera, waters) {
+    entities.forEach((entity) => { processEntity(entity); });
+    processTerrain(terrain);
+
+    render(lights, camera, waters);
+}
+
+function render(lights, camera, waters) {
     prepare();
 
-    shader.start();
-    shader.loadSkyColor(skyColor);
-    shader.loadLights(lights);
-    shader.loadViewMatrix(camera);
-    EntityRenderer.render(texturedModelEntities);
-    shader.stop();
-
-    terrainShader.start();
-    terrainShader.loadSkyColor(skyColor);
-    terrainShader.loadLights(lights);
-    terrainShader.loadViewMatrix(camera);
-    TerrainRenderer.render(terrains);
-    terrainShader.stop();
-
+    EntityRenderer.render(camera, lights, skyColor, texturedModelEntities);
+    TerrainRenderer.render(camera, lights, skyColor, terrains);
     SkyboxRenderer.render(camera, skyColor);
+
+    if (waters !== undefined) {
+        WaterRenderer.render(camera, waters);
+    }
 
     texturedModelEntities.length = 0;
     texturedModelIndicesLookUp = {};
@@ -78,9 +60,10 @@ function processTerrain(terrain) {
 }
 
 function cleanUp() {
-    shader.cleanUp();
-    terrainShader.cleanUp();
+    EntityRenderer.cleanUp();
+    TerrainRenderer.cleanUp();
     SkyboxRenderer.cleanUp();
+    WaterRenderer.cleanUp();
 }
 
 function prepare() {
@@ -95,4 +78,5 @@ module.exports = {
     processTerrain,
     cleanUp,
     initialize,
+    renderScene,
 };

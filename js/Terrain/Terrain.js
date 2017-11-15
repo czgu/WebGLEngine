@@ -1,7 +1,7 @@
 const Loader = require('../RenderEngine/Loader.js');
 const MathUtil = require('../Util/MathUtil.js');
 
-const SIZE = 800;
+const SIZE = 150;
 let vertexCount;
 let gridSquareSize;
 

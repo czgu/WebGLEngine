@@ -31,12 +31,11 @@ class SkyboxShader extends ShaderProgram.ShaderProgram {
         this.loadMatrix(this.projectionMatrixLocation, matrix);
     }
 
-    loadViewMatrix(camera) {
-        const matrix = MathUtil.createViewMatrix(
-            [0, 0, 0], [camera.pitch, camera.yaw, camera.roll]);
+    loadCamera(camera) {
+        let { projection, view } = camera.calculateProjectionAndViewMatrices([0, 0, 0]);
         this.rotation += Display.delta * ROTATION_SPEED;
-        mat4.rotateY(matrix, matrix, this.rotation);
-        this.loadMatrix(this.viewMatrixLocation, matrix);
+        mat4.rotateY(view, view, this.rotation);
+        this.loadMatrix(this.viewMatrixLocation, view);
     }
 
     loadFogColor(color) {
